@@ -106,6 +106,12 @@ export default function Home() {
               image="https://images.unsplash.com/photo-1620626011761-996317b8d101?auto=format&fit=crop&q=80&w=800" 
               delay={0.4}
             />
+            <CategoryCard 
+              title="Water Heaters" 
+              slug="water-heaters"
+              image="https://images.unsplash.com/photo-1563453392212-326f5e854473?auto=format&fit=crop&q=80&w=800" 
+              delay={0.5}
+            />
           </div>
         </div>
       </section>
