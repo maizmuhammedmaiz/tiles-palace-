@@ -106,12 +106,6 @@ export default function Home() {
               image="https://images.unsplash.com/photo-1620626011761-996317b8d101?auto=format&fit=crop&q=80&w=800" 
               delay={0.4}
             />
-            <CategoryCard 
-              title="Heating Systems" 
-              slug="heating"
-              image="https://images.unsplash.com/photo-1585314863980-45f8f30787a9?auto=format&fit=crop&q=80&w=800" 
-              delay={0.5}
-            />
           </div>
         </div>
       </section>
