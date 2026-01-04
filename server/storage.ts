@@ -108,6 +108,14 @@ export class DatabaseStorage implements IStorage {
         category: "Lighting",
         imageUrl: "https://images.unsplash.com/photo-1565814329452-e1efa11c5b89?auto=format&fit=crop&q=80&w=800",
         featured: true
+      },
+      {
+        name: "Instant Water Heater",
+        description: "Compact tankless water heater for immediate hot water.",
+        price: "200.00",
+        category: "Water Heaters",
+        imageUrl: "https://images.unsplash.com/photo-1563453392212-326f5e854473?auto=format&fit=crop&q=80&w=800",
+        featured: false
       }
     ];
 
