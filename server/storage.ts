@@ -114,7 +114,7 @@ export class DatabaseStorage implements IStorage {
         description: "Premium water heater with stylish digital display, rust-proof ABS body, and anti-corrosive vitreous enamel tank coating. Includes free installation.",
         price: "200.00",
         category: "Water Heaters",
-        imageUrl: "/images/vguard-heater.png",
+        imageUrl: "/images/water-heater-new.png",
         featured: false
       }
     ];
