@@ -110,11 +110,11 @@ export class DatabaseStorage implements IStorage {
         featured: true
       },
       {
-        name: "Instant Water Heater",
-        description: "Compact tankless water heater for immediate hot water.",
+        name: "V-Guard Pebble Shine Water Heater",
+        description: "Premium water heater with stylish digital display, rust-proof ABS body, and anti-corrosive vitreous enamel tank coating. Includes free installation.",
         price: "200.00",
         category: "Water Heaters",
-        imageUrl: "https://images.unsplash.com/photo-1563453392212-326f5e854473?auto=format&fit=crop&q=80&w=800",
+        imageUrl: "/images/vguard-heater.png",
         featured: false
       }
     ];

@@ -109,7 +109,7 @@ export default function Home() {
             <CategoryCard 
               title="Water Heaters" 
               slug="water-heaters"
-              image="https://images.unsplash.com/photo-1563453392212-326f5e854473?auto=format&fit=crop&q=80&w=800" 
+              image="/images/vguard-heater.png" 
               delay={0.5}
             />
           </div>
