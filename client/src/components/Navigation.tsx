@@ -23,7 +23,7 @@ export function Navigation() {
             <ShoppingBag className="w-5 h-5" />
           </div>
           <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/70">
-            LuxeFittings
+            Tiles Palace
           </span>
         </Link>
 

@@ -38,7 +38,7 @@ export default function Home() {
             transition={{ duration: 0.8 }}
             className="text-4xl md:text-6xl lg:text-7xl font-display font-bold text-white mb-6 leading-tight"
           >
-            Elegant Tiles & <br/> Modern Fittings
+            Welcome to <br/> Tiles Palace
           </motion.h1>
           
           <motion.p 

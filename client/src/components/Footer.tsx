@@ -6,7 +6,7 @@ export function Footer() {
       <div className="container px-4 py-12 md:py-16">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 lg:gap-12">
           <div className="space-y-4">
-            <h3 className="text-xl font-display font-bold text-white">LuxeFittings</h3>
+            <h3 className="text-xl font-display font-bold text-white">Tiles Palace</h3>
             <p className="text-sm text-slate-400 leading-relaxed">
               Premium tiles, kitchen fittings, and lighting solutions for the modern home. Elevate your space with our curated collection.
             </p>
@@ -37,14 +37,14 @@ export function Footer() {
             <ul className="space-y-2 text-sm text-slate-400">
               <li>123 Design Avenue</li>
               <li>Interior City, IC 90210</li>
-              <li>contact@luxefittings.com</li>
+              <li>contact@tilespalace.com</li>
               <li>+1 (555) 123-4567</li>
             </ul>
           </div>
         </div>
         
         <div className="mt-12 pt-8 border-t border-slate-800 text-center text-xs text-slate-500">
-          <p>&copy; {new Date().getFullYear()} LuxeFittings. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} Tiles Palace. All rights reserved.</p>
         </div>
       </div>
     </footer>
