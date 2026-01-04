@@ -7,7 +7,7 @@ export const products = pgTable("products", {
   name: text("name").notNull(),
   description: text("description").notNull(),
   price: numeric("price").notNull(),
-  category: text("category").notNull(), // tiles, washbasin, shower, kitchen, lighting, heating
+  category: text("category").notNull(), // tiles, washbasin, shower, kitchen, lighting
   imageUrl: text("image_url").notNull(),
   featured: boolean("featured").default(false),
 });
