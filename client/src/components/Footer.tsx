@@ -6,7 +6,10 @@ export function Footer() {
       <div className="container px-4 py-12 md:py-16">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 lg:gap-12">
           <div className="space-y-4">
-            <h3 className="text-xl font-display font-bold text-white">Tiles Palace</h3>
+            <div className="flex items-center gap-2">
+              <img src="/logo.png" alt="Tiles Palace" className="w-8 h-8 object-contain rounded-md" />
+              <h3 className="text-xl font-display font-bold text-white">Tiles Palace</h3>
+            </div>
             <p className="text-sm text-slate-400 leading-relaxed">
               Premium tiles, kitchen fittings, and lighting solutions for the modern home. Elevate your space with our curated collection.
             </p>

@@ -20,9 +20,7 @@ export function Navigation() {
     <nav className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between px-4 md:px-6">
         <Link href="/" className="flex items-center gap-2 font-display text-xl font-bold tracking-tighter">
-          <div className="bg-primary text-primary-foreground p-1.5 rounded-lg">
-            <ShoppingBag className="w-5 h-5" />
-          </div>
+          <img src="/logo.png" alt="Tiles Palace" className="w-10 h-10 object-contain rounded-lg" />
           <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/70">
             Tiles Palace
           </span>
