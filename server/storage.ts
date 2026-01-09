@@ -1,4 +1,4 @@
-import { products, inquiries, type Product, type InsertProduct, type Inquiry, type InsertInquiry } from "@shared/schema";
+import { products, inquiries, services, type Product, type InsertProduct, type Inquiry, type InsertInquiry, type Service, type InsertService } from "@shared/schema";
 import { db } from "./db";
 import { eq, ilike } from "drizzle-orm";
 
@@ -6,7 +6,9 @@ export interface IStorage {
   getProducts(category?: string): Promise<Product[]>;
   getProduct(id: number): Promise<Product | undefined>;
   createInquiry(inquiry: InsertInquiry): Promise<Inquiry>;
+  getServices(): Promise<Service[]>;
   seedProducts(): Promise<void>;
+  seedServices(): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -25,6 +27,32 @@ export class DatabaseStorage implements IStorage {
   async createInquiry(insertInquiry: InsertInquiry): Promise<Inquiry> {
     const [inquiry] = await db.insert(inquiries).values(insertInquiry).returning();
     return inquiry;
+  }
+
+  async getServices(): Promise<Service[]> {
+    return await db.select().from(services);
+  }
+
+  async seedServices(): Promise<void> {
+    const existing = await db.select().from(services).limit(1);
+    if (existing.length > 0) return;
+
+    const seedData: InsertService[] = [
+      {
+        title: "Modern Bathroom Renovation",
+        description: "Complete overhaul with premium marble tiles and rainfall shower.",
+        type: "photo",
+        imageUrl: "https://images.unsplash.com/photo-1552321554-5fefe8c9ef14?auto=format&fit=crop&q=80&w=800",
+      },
+      {
+        title: "Designer Kitchen Lighting",
+        description: "Installation of custom pendant lights and smart LED strips.",
+        type: "photo",
+        imageUrl: "https://images.unsplash.com/photo-1556912177-c54844bdb962?auto=format&fit=crop&q=80&w=800",
+      }
+    ];
+
+    await db.insert(services).values(seedData);
   }
 
   async seedProducts(): Promise<void> {

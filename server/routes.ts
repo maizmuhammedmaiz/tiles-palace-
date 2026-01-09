@@ -41,8 +41,14 @@ export async function registerRoutes(
     }
   });
 
+  app.get(api.services.list.path, async (req, res) => {
+    const items = await storage.getServices();
+    res.json(items);
+  });
+
   // Seed Data
   await storage.seedProducts();
+  await storage.seedServices();
 
   return httpServer;
 }

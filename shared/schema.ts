@@ -26,5 +26,15 @@ export const insertInquirySchema = createInsertSchema(inquiries).omit({ id: true
 
 export type Product = typeof products.$inferSelect;
 export type InsertProduct = z.infer<typeof insertProductSchema>;
-export type Inquiry = typeof inquiries.$inferSelect;
-export type InsertInquiry = z.infer<typeof insertInquirySchema>;
+export const services = pgTable("services", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  imageUrl: text("image_url"),
+  videoUrl: text("video_url"),
+  type: text("type").notNull(), // 'photo' or 'video'
+});
+
+export const insertServiceSchema = createInsertSchema(services).omit({ id: true });
+export type Service = typeof services.$inferSelect;
+export type InsertService = z.infer<typeof insertServiceSchema>;

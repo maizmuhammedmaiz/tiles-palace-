@@ -35,6 +35,15 @@ export const api = {
       },
     },
   },
+  services: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/services',
+      responses: {
+        200: z.array(z.custom<any>()),
+      },
+    },
+  },
   inquiries: {
     create: {
       method: 'POST' as const,
