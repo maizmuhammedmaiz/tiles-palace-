@@ -131,12 +131,18 @@ export default function Contact() {
               </div>
             </div>
             
-            {/* Map Placeholder */}
-            <div className="bg-slate-100 rounded-2xl h-[300px] w-full flex items-center justify-center border text-slate-400">
-              <div className="text-center">
-                <MapPin className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p>Interactive Map Would Load Here</p>
-              </div>
+            {/* Google Maps Embed */}
+            <div className="bg-slate-100 rounded-2xl h-[400px] w-full overflow-hidden border shadow-sm">
+              <iframe 
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3506.2233913120413!2d77.0592!3d28.5323!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMjjCsDMxJzU2LjMiTiA3N8KwMDMnMzMuMSJF!5e0!3m2!1sen!2sin!4v1625567890123!5m2!1sen!2sin" 
+                width="100%" 
+                height="100%" 
+                style={{ border: 0 }} 
+                allowFullScreen={true} 
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                title="Tiles Palace Location"
+              ></iframe>
             </div>
           </div>
         </div>
