@@ -154,6 +154,44 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="py-20 md:py-24 bg-white">
+        <div className="container px-4">
+          <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-4">
+            <div>
+              <h2 className="text-3xl md:text-4xl font-display font-bold text-slate-900">Our Work</h2>
+              <p className="text-muted-foreground mt-2">See the results of our professional installations.</p>
+            </div>
+            <Button asChild variant="ghost" className="group">
+              <Link href="/portfolio" className="flex items-center gap-2 text-primary font-semibold">
+                View All Projects <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+              </Link>
+            </Button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="group relative overflow-hidden rounded-2xl aspect-video">
+              <img 
+                src="https://images.unsplash.com/photo-1552321554-5fefe8c9ef14?auto=format&fit=crop&q=80&w=800" 
+                alt="Bathroom Project"
+                className="w-full h-full object-cover transition-transform group-hover:scale-105"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-6">
+                <h3 className="text-white text-xl font-bold">Luxury Bathroom Suite</h3>
+              </div>
+            </div>
+            <div className="group relative overflow-hidden rounded-2xl aspect-video">
+              <img 
+                src="https://images.unsplash.com/photo-1556912177-c54844bdb962?auto=format&fit=crop&q=80&w=800" 
+                alt="Kitchen Project"
+                className="w-full h-full object-cover transition-transform group-hover:scale-105"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-6">
+                <h3 className="text-white text-xl font-bold">Designer Kitchen Lighting</h3>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <Footer />
     </div>
   );
