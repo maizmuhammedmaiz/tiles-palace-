@@ -90,7 +90,7 @@ export default function ProductDetail() {
             </h1>
             
             <div className="text-3xl font-bold text-primary mb-8">
-              ${product.price}
+              ₹{product.price}
               <span className="text-base font-normal text-muted-foreground ml-2">/ unit</span>
             </div>
             

@@ -44,7 +44,7 @@ export function ProductCard({ product }: ProductCardProps) {
         
         <CardFooter className="p-5 pt-0 flex items-center justify-between mt-auto">
           <span className="font-display font-bold text-lg text-primary">
-            ${product.price}
+            ₹{product.price}
           </span>
           <Button asChild variant="outline" size="sm" className="group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
             <Link href={`/product/${product.id}`}>View Details</Link>
