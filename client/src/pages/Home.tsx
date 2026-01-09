@@ -109,7 +109,7 @@ export default function Home() {
             <CategoryCard 
               title="Water Heaters" 
               slug="water-heaters"
-              image="/images/water-heater-new.png" 
+              image="/images/water-heater-shower.png" 
               delay={0.5}
             />
           </div>

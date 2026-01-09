@@ -110,11 +110,11 @@ export class DatabaseStorage implements IStorage {
         featured: true
       },
       {
-        name: "V-Guard Pebble Shine Water Heater",
-        description: "Premium water heater with stylish digital display, rust-proof ABS body, and anti-corrosive vitreous enamel tank coating. Includes free installation.",
+        name: "Premium Digital Water Heater with Shower",
+        description: "Advanced digital water heater featuring real-time temperature display and integrated shower system. Elegant white design with modern controls.",
         price: "200.00",
         category: "Water Heaters",
-        imageUrl: "/images/water-heater-new.png",
+        imageUrl: "/images/water-heater-shower.png",
         featured: false
       }
     ];
