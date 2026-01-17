@@ -79,6 +79,15 @@ export class DatabaseStorage implements IStorage {
     return result as any;
   }
 
+  async getMonthlySales(): Promise<{ month: string; total: string; count: number }[]> {
+    const result = await db.select({
+      month: sql`SUBSTRING(${orders.createdAt}, 1, 7)`,
+      total: sql`SUM(${orders.total})::text`,
+      count: sql`COUNT(*)::int`
+    }).from(orders).where(eq(orders.status, 'completed')).groupBy(sql`SUBSTRING(${orders.createdAt}, 1, 7)`);
+    return result as any;
+  }
+
   async seedServices(): Promise<void> {
     const existing = await db.select().from(services).limit(1);
     if (existing.length > 0) return;

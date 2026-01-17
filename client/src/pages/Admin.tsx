@@ -34,6 +34,10 @@ export default function Admin() {
     queryKey: ["/api/admin/analytics/daily-sales"],
   });
 
+  const { data: monthlySalesData } = useQuery<{ month: string; total: string; count: number }[]>({
+    queryKey: ["/api/admin/analytics/monthly-sales"],
+  });
+
   const createProductMutation = useMutation({
     mutationFn: async (data: any) => {
       await apiRequest("POST", "/api/admin/products", data);
@@ -300,7 +304,7 @@ export default function Admin() {
           </TabsContent>
 
           <TabsContent value="analytics">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
               <Card>
                 <CardHeader>
                   <CardTitle className="text-sm font-medium">Daily Sales</CardTitle>
@@ -311,29 +315,65 @@ export default function Admin() {
               </Card>
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-sm font-medium">Order Count</CardTitle>
+                  <CardTitle className="text-sm font-medium">Monthly Sales</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-bold">₹{monthlySalesData?.[0]?.total || "0"}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm font-medium">Daily Orders</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-2xl font-bold">{salesData?.[0]?.count || "0"}</p>
                 </CardContent>
               </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm font-medium">Monthly Orders</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-bold">{monthlySalesData?.[0]?.count || "0"}</p>
+                </CardContent>
+              </Card>
             </div>
-            <Card>
-              <CardHeader>
-                <CardTitle>Sales Trend</CardTitle>
-              </CardHeader>
-              <CardContent className="h-[400px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={salesData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="total" stroke="hsl(var(--primary))" strokeWidth={2} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Daily Sales Trend</CardTitle>
+                </CardHeader>
+                <CardContent className="h-[400px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={salesData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" />
+                      <YAxis />
+                      <Tooltip />
+                      <Line type="monotone" dataKey="total" stroke="hsl(var(--primary))" strokeWidth={2} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Monthly Sales Trend</CardTitle>
+                </CardHeader>
+                <CardContent className="h-[400px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={monthlySalesData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="month" />
+                      <YAxis />
+                      <Tooltip />
+                      <Line type="monotone" dataKey="total" stroke="hsl(var(--primary))" strokeWidth={2} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </main>

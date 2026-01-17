@@ -80,6 +80,11 @@ export async function registerRoutes(
     res.json(sales);
   });
 
+  app.get("/api/admin/analytics/monthly-sales", async (req, res) => {
+    const sales = await storage.getMonthlySales();
+    res.json(sales);
+  });
+
   // Seed Data
   await storage.seedProducts();
   await storage.seedServices();
