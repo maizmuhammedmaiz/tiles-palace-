@@ -103,10 +103,15 @@ export default function Contact() {
                 </div>
                 <div>
                   <h3 className="font-bold text-lg mb-1">Opening Hours</h3>
-                  <p className="text-muted-foreground text-sm">
-                    Mon - Sat: 9:30 AM - 7:30 PM<br />
-                    Sunday: Closed
-                  </p>
+                  <div className="text-muted-foreground text-sm space-y-1">
+                    <p>Saturday 9:30 am–7:30 pm</p>
+                    <p>Sunday Closed</p>
+                    <p>Monday 9:30 am–7:30 pm</p>
+                    <p>Tuesday 9:30 am–7:30 pm</p>
+                    <p>Wednesday 9:30 am–7:30 pm</p>
+                    <p>Thursday 9:30 am–7:30 pm</p>
+                    <p>Friday 9:30 am–7:30 pm</p>
+                  </div>
                 </div>
               </CardContent>
             </Card>
