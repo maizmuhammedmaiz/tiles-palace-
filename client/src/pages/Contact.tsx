@@ -31,8 +31,8 @@ export default function Contact() {
                 <div>
                   <h3 className="font-bold text-lg mb-1">Visit Showroom</h3>
                   <p className="text-muted-foreground text-sm leading-relaxed">
-                    123 Design Avenue<br />
-                    Interior City, IC 90210
+                    Ayanikkad, Payyoli, Iringal<br />
+                    Kerala 673522
                   </p>
                 </div>
               </CardContent>

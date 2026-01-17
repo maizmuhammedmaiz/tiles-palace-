@@ -38,8 +38,8 @@ export function Footer() {
           <div>
             <h4 className="font-semibold text-white mb-4">Contact</h4>
             <ul className="space-y-2 text-sm text-slate-400">
-              <li>123 Design Avenue</li>
-              <li>Interior City, IC 90210</li>
+              <li>Ayanikkad, Payyoli, Iringal</li>
+              <li>Kerala 673522</li>
               <li>contact@tilespalace.com</li>
               <li>+1 (555) 123-4567</li>
               <li>
