@@ -10,6 +10,7 @@ const links = [
   { href: "/catalog", label: "Catalog" },
   { href: "/portfolio", label: "Our Work" },
   { href: "/contact", label: "Contact Us" },
+  { href: "/admin", label: "Admin" },
 ];
 
 export function Navigation() {
