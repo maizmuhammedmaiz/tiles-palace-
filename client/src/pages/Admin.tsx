@@ -15,7 +15,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertProductSchema, type Product, type Order } from "@shared/schema";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { Plus, ShoppingCart, Package, BarChart3, Check, X, Printer } from "lucide-react";
+import { Plus, ShoppingCart, Package, BarChart3, Check, X, Printer, Image as ImageIcon } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 export default function Admin() {
   const [activeTab, setActiveTab] = useState("inventory");
@@ -119,7 +120,46 @@ export default function Admin() {
                           />
                         </TableCell>
                         <TableCell>
-                          <Button variant="outline" size="sm">Edit Photo</Button>
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button variant="outline" size="sm">
+                                <ImageIcon className="h-4 w-4 mr-2" /> Edit Photo
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Update Product Photo</DialogTitle>
+                              </DialogHeader>
+                              <div className="space-y-4 py-4">
+                                <div className="space-y-2">
+                                  <Label>Image URL</Label>
+                                  <Input 
+                                    placeholder="Enter image URL" 
+                                    defaultValue={product.imageUrl}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        updateProductMutation.mutate({
+                                          id: product.id,
+                                          data: { imageUrl: e.currentTarget.value }
+                                        });
+                                      }
+                                    }}
+                                  />
+                                  <p className="text-xs text-muted-foreground">Press Enter to save changes</p>
+                                </div>
+                                {product.imageUrl && (
+                                  <div className="space-y-2">
+                                    <Label>Preview</Label>
+                                    <img 
+                                      src={product.imageUrl} 
+                                      alt="Preview" 
+                                      className="w-full h-40 object-cover rounded-md border" 
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            </DialogContent>
+                          </Dialog>
                         </TableCell>
                       </TableRow>
                     ))}
