@@ -21,10 +21,16 @@ export default function Catalog() {
   const [location, setLocation] = useLocation();
   const searchParams = new URLSearchParams(window.location.search);
   const activeCategory = searchParams.get("category") || "all";
+  const searchQuery = searchParams.get("search") || "";
 
   // Pass undefined if 'all' is selected to fetch everything
-  const { data: products, isLoading } = useProducts(
+  const { data: allProducts, isLoading } = useProducts(
     activeCategory === "all" ? undefined : activeCategory
+  );
+
+  const products = allProducts?.filter(p => 
+    p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleCategoryChange = (catId: string) => {

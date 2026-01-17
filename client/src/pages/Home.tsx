@@ -4,12 +4,23 @@ import { CategoryCard } from "@/components/CategoryCard";
 import { ProductCard } from "@/components/ProductCard";
 import { useProducts } from "@/hooks/use-products";
 import { Button } from "@/components/ui/button";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { motion } from "framer-motion";
-import { ArrowRight, Star } from "lucide-react";
+import { ArrowRight, Star, Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { useState } from "react";
 
 export default function Home() {
   const { data: featuredProducts, isLoading } = useProducts();
+  const [, setLocation] = useLocation();
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      setLocation(`/catalog?search=${encodeURIComponent(searchQuery.trim())}`);
+    }
+  };
   
   // Filter for featured items manually if backend doesn't support specific filter yet
   // In a real app, I'd pass ?featured=true to the hook
@@ -49,6 +60,28 @@ export default function Home() {
           >
             Transform your home with our premium collection of tiles, lighting, and bathroom essentials. Designed for luxury, built for life.
           </motion.p>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.3 }}
+            className="mb-10 max-w-xl mx-auto"
+          >
+            <form onSubmit={handleSearch} className="relative">
+              <Input
+                type="text"
+                placeholder="Search for tiles, washbasins, showers..."
+                className="h-14 pl-12 pr-4 text-base rounded-full border-white/20 bg-white/10 backdrop-blur-md text-white placeholder:text-slate-300 focus:ring-white/30 shadow-2xl"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                data-testid="input-search-home"
+              />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-300" />
+              <Button type="submit" className="absolute right-1 top-1/2 -translate-y-1/2 h-12 px-8 rounded-full shadow-lg bg-white text-primary hover:bg-slate-100 font-bold">
+                Search
+              </Button>
+            </form>
+          </motion.div>
           
           <motion.div
             initial={{ opacity: 0, y: 20 }}
