@@ -42,12 +42,17 @@ export function ProductCard({ product }: ProductCardProps) {
           </p>
         </CardContent>
         
-        <CardFooter className="p-5 pt-0 flex items-center justify-between mt-auto">
-          <span className="font-display font-bold text-lg text-primary">
-            ₹{product.price}
-          </span>
-          <Button asChild variant="outline" size="sm" className="group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-            <Link href={`/product/${product.id}`}>View Details</Link>
+        <CardFooter className="p-5 pt-0 flex flex-col gap-3 mt-auto">
+          <div className="flex items-center justify-between w-full">
+            <span className="font-display font-bold text-lg text-primary">
+              ₹{product.price}
+            </span>
+            <Button asChild variant="outline" size="sm" className="group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+              <Link href={`/product/${product.id}`}>View Details</Link>
+            </Button>
+          </div>
+          <Button className="w-full h-10 font-semibold shadow-sm" asChild>
+            <Link href={`/product/${product.id}`}>Order Now</Link>
           </Button>
         </CardFooter>
       </Card>

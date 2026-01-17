@@ -116,13 +116,18 @@ export default function ProductDetail() {
             </div>
             
             <div className="mt-auto pt-6 border-t">
-              <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex flex-col gap-4">
+                <Button size="lg" className="w-full h-14 text-lg font-semibold shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all bg-green-600 hover:bg-green-700 border-none" asChild>
+                  <a href={`https://wa.me/15551234567?text=${encodeURIComponent(`I would like to order: ${product.name} (₹${product.price})`)}`} target="_blank" rel="noopener noreferrer">
+                    Order via WhatsApp
+                  </a>
+                </Button>
                 <div className="flex-grow">
                    <InquiryDialog 
                      productId={product.id} 
                      productName={product.name}
                      trigger={
-                       <Button size="lg" className="w-full h-14 text-lg font-semibold shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all">
+                       <Button size="lg" variant="outline" className="w-full h-14 text-lg font-semibold">
                          Request Quote / Inquire
                        </Button>
                      }
@@ -130,7 +135,7 @@ export default function ProductDetail() {
                 </div>
               </div>
               <p className="text-xs text-center sm:text-left text-muted-foreground mt-4 flex items-center gap-1">
-                <Check className="w-3 h-3" /> Secure inquiry process. No payment required today.
+                <Check className="w-3 h-3" /> Instant order via WhatsApp. No credit card needed.
               </p>
             </div>
           </div>
