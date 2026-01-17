@@ -24,8 +24,31 @@ export const inquiries = pgTable("inquiries", {
 export const insertProductSchema = createInsertSchema(products).omit({ id: true });
 export const insertInquirySchema = createInsertSchema(inquiries).omit({ id: true });
 
+export const orders = pgTable("orders", {
+  id: serial("id").primaryKey(),
+  customerName: text("customer_name").notNull(),
+  total: numeric("total").notNull(),
+  status: text("status").notNull().default("pending"), // pending, accepted, completed, cancelled
+  createdAt: text("created_at").notNull(),
+});
+
+export const orderItems = pgTable("order_items", {
+  id: serial("id").primaryKey(),
+  orderId: integer("order_id").notNull(),
+  productId: integer("product_id").notNull(),
+  quantity: integer("quantity").notNull(),
+  price: numeric("price").notNull(),
+});
+
+export const insertOrderSchema = createInsertSchema(orders).omit({ id: true, status: true });
+export const insertOrderItemSchema = createInsertSchema(orderItems).omit({ id: true });
+
 export type Product = typeof products.$inferSelect;
 export type InsertProduct = z.infer<typeof insertProductSchema>;
+export type Order = typeof orders.$inferSelect;
+export type InsertOrder = z.infer<typeof insertOrderSchema>;
+export type OrderItem = typeof orderItems.$inferSelect;
+export type InsertOrderItem = z.infer<typeof insertOrderItemSchema>;
 export const services = pgTable("services", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),

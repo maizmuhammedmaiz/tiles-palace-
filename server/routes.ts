@@ -46,6 +46,40 @@ export async function registerRoutes(
     res.json(items);
   });
 
+  // Admin APIs
+  app.post("/api/admin/products", async (req, res) => {
+    const product = await storage.createProduct(req.body);
+    res.status(201).json(product);
+  });
+
+  app.patch("/api/admin/products/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    const product = await storage.updateProduct(id, req.body);
+    res.json(product);
+  });
+
+  app.get("/api/admin/orders", async (req, res) => {
+    const orders = await storage.getOrders();
+    res.json(orders);
+  });
+
+  app.post("/api/admin/orders", async (req, res) => {
+    const { order, items } = req.body;
+    const newOrder = await storage.createOrder(order, items);
+    res.status(201).json(newOrder);
+  });
+
+  app.patch("/api/admin/orders/:id/status", async (req, res) => {
+    const id = parseInt(req.params.id);
+    const order = await storage.updateOrderStatus(id, req.body.status);
+    res.json(order);
+  });
+
+  app.get("/api/admin/analytics/daily-sales", async (req, res) => {
+    const sales = await storage.getDailySales();
+    res.json(sales);
+  });
+
   // Seed Data
   await storage.seedProducts();
   await storage.seedServices();
