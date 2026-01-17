@@ -121,7 +121,7 @@ export class DatabaseStorage implements IStorage {
         description: "Elegant white marble tiles with grey veining, perfect for living rooms.",
         price: "4500",
         category: "Tiles",
-        imageUrl: "https://images.unsplash.com/photo-1596417767228-5ae0072d7331?auto=format&fit=crop&q=80&w=800",
+        imageUrl: "attached_assets/stock_images/premium_marble_floor_5df6a86a.jpg",
         featured: true
       },
       {
@@ -129,7 +129,7 @@ export class DatabaseStorage implements IStorage {
         description: "Textured ceramic tiles for bathrooms and kitchens.",
         price: "2500",
         category: "Tiles",
-        imageUrl: "https://images.unsplash.com/photo-1595861191062-811c751241f9?auto=format&fit=crop&q=80&w=800",
+        imageUrl: "attached_assets/stock_images/ceramic_wall_tiles_b_dac2c109.jpg",
         featured: false
       },
       // Washbasins
@@ -146,7 +146,7 @@ export class DatabaseStorage implements IStorage {
         description: "Timeless design for traditional bathrooms.",
         price: "9500",
         category: "Washbasins",
-        imageUrl: "https://images.unsplash.com/photo-1584620836301-8d3807d4b06c?auto=format&fit=crop&q=80&w=800",
+        imageUrl: "attached_assets/stock_images/classic_pedestal_sin_d333865c.jpg",
         featured: false
       },
       // Showers
@@ -155,7 +155,7 @@ export class DatabaseStorage implements IStorage {
         description: "Luxury 10-inch rainfall shower head in chrome finish.",
         price: "8500",
         category: "Showers",
-        imageUrl: "https://images.unsplash.com/photo-1563293883-936d50ee515a?auto=format&fit=crop&q=80&w=800",
+        imageUrl: "attached_assets/stock_images/rainfall_shower_head_700cf018.jpg",
         featured: true
       },
       // Kitchen Fittings
@@ -164,7 +164,7 @@ export class DatabaseStorage implements IStorage {
         description: "Double bowl kitchen sink, scratch resistant.",
         price: "15000",
         category: "Kitchen Fittings",
-        imageUrl: "https://images.unsplash.com/photo-1588854337422-bc519c968434?auto=format&fit=crop&q=80&w=800",
+        imageUrl: "attached_assets/stock_images/stainless_steel_kitc_9a024fed.jpg",
         featured: true
       },
       {
