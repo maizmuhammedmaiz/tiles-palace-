@@ -102,41 +102,15 @@ function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
   );
 }
 
-export default function Admin() {
+function AdminDashboard({ onLogout }: { onLogout: () => void }) {
   const [activeTab, setActiveTab] = useState("inventory");
   const { toast } = useToast();
 
-  const { data: authData, isLoading: authLoading, refetch: refetchAuth } = useQuery<{ loggedIn: boolean }>({
-    queryKey: ["/api/admin/me"],
-  });
-
-  const logoutMutation = useMutation({
-    mutationFn: async () => {
-      await apiRequest("POST", "/api/admin/logout", {});
-    },
-    onSuccess: () => {
-      refetchAuth();
-      queryClient.clear();
-    },
-  });
-
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  if (!authData?.loggedIn) {
-    return <AdminLogin onSuccess={() => refetchAuth()} />;
-  }
-
-  const { data: products, isLoading: productsLoading } = useQuery<Product[]>({
+  const { data: products } = useQuery<Product[]>({
     queryKey: ["/api/products"],
   });
 
-  const { data: orders, isLoading: ordersLoading } = useQuery<Order[]>({
+  const { data: orders } = useQuery<Order[]>({
     queryKey: ["/api/admin/orders"],
   });
 
@@ -187,13 +161,12 @@ export default function Admin() {
           <h1 className="text-3xl font-bold">Admin Dashboard</h1>
           <Button
             variant="outline"
-            onClick={() => logoutMutation.mutate()}
-            disabled={logoutMutation.isPending}
+            onClick={onLogout}
             data-testid="button-admin-logout"
             className="flex gap-2"
           >
             <LogOut className="h-4 w-4" />
-            {logoutMutation.isPending ? "Signing out..." : "Sign Out"}
+            Sign Out
           </Button>
         </div>
 
@@ -227,10 +200,8 @@ export default function Admin() {
                     <DialogHeader>
                       <DialogTitle>Add New Product</DialogTitle>
                     </DialogHeader>
-                    <ProductForm 
-                      onSubmit={(data) => {
-                        createProductMutation.mutate(data);
-                      }} 
+                    <ProductForm
+                      onSubmit={(data) => createProductMutation.mutate(data)}
                       isPending={createProductMutation.isPending}
                     />
                   </DialogContent>
@@ -284,14 +255,14 @@ export default function Admin() {
                               <div className="space-y-4 py-4">
                                 <div className="space-y-2">
                                   <Label>Image URL</Label>
-                                  <Input 
-                                    placeholder="Enter image URL" 
+                                  <Input
+                                    placeholder="Enter image URL"
                                     defaultValue={product.imageUrl}
                                     onKeyDown={(e) => {
                                       if (e.key === 'Enter') {
                                         updateProductMutation.mutate({
                                           id: product.id,
-                                          data: { imageUrl: e.currentTarget.value }
+                                          data: { imageUrl: e.currentTarget.value },
                                         });
                                       }
                                     }}
@@ -301,10 +272,10 @@ export default function Admin() {
                                 {product.imageUrl && (
                                   <div className="space-y-2">
                                     <Label>Preview</Label>
-                                    <img 
-                                      src={product.imageUrl} 
-                                      alt="Preview" 
-                                      className="w-full h-40 object-cover rounded-md border" 
+                                    <img
+                                      src={product.imageUrl}
+                                      alt="Preview"
+                                      className="w-full h-40 object-cover rounded-md border"
                                     />
                                   </div>
                                 )}
@@ -460,7 +431,7 @@ export default function Admin() {
                 </CardContent>
               </Card>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
@@ -501,6 +472,32 @@ export default function Admin() {
       </main>
     </div>
   );
+}
+
+export default function Admin() {
+  const { data: authData, isLoading: authLoading, refetch: refetchAuth } = useQuery<{ loggedIn: boolean }>({
+    queryKey: ["/api/admin/me"],
+  });
+
+  const handleLogout = async () => {
+    await apiRequest("POST", "/api/admin/logout", {});
+    queryClient.clear();
+    refetchAuth();
+  };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!authData?.loggedIn) {
+    return <AdminLogin onSuccess={() => refetchAuth()} />;
+  }
+
+  return <AdminDashboard onLogout={handleLogout} />;
 }
 
 function ProductForm({ onSubmit, isPending }: { onSubmit: (data: any) => void; isPending: boolean }) {
