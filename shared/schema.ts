@@ -27,6 +27,8 @@ export const insertInquirySchema = createInsertSchema(inquiries).omit({ id: true
 export const orders = pgTable("orders", {
   id: serial("id").primaryKey(),
   customerName: text("customer_name").notNull(),
+  phone: text("phone"),
+  location: text("location"),
   total: numeric("total").notNull(),
   status: text("status").notNull().default("pending"), // pending, accepted, completed, cancelled
   createdAt: text("created_at").notNull(),

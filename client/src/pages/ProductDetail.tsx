@@ -26,13 +26,15 @@ function OrderDialog({
   product: { id: number; name: string; price: string };
 }) {
   const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [location, setLocation] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
   const handleOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || !phone.trim() || !location.trim()) return;
     setLoading(true);
     try {
       await fetch("/api/orders", {
@@ -40,6 +42,8 @@ function OrderDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           customerName: name.trim(),
+          phone: phone.trim(),
+          location: location.trim(),
           productId: product.id,
           productName: product.name,
           price: product.price,
@@ -47,11 +51,13 @@ function OrderDialog({
         }),
       });
       const total = (parseFloat(product.price) * quantity).toFixed(0);
-      const msg = `Hi! I'd like to order:\n\nProduct: ${product.name}\nQuantity: ${quantity}\nTotal: ₹${total}\n\nMy name: ${name.trim()}`;
+      const msg = `Hi! I'd like to order from Tiles Palace:\n\nProduct: ${product.name}\nQuantity: ${quantity}\nTotal: ₹${total}\n\nCustomer Details:\nName: ${name.trim()}\nPhone: ${phone.trim()}\nLocation: ${location.trim()}`;
       window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`, "_blank");
       toast({ title: "Order placed!", description: "Your order has been saved and sent via WhatsApp." });
       onClose();
       setName("");
+      setPhone("");
+      setLocation("");
       setQuantity(1);
     } catch {
       toast({ title: "Error", description: "Could not save order. Please try again.", variant: "destructive" });
@@ -66,19 +72,42 @@ function OrderDialog({
         <DialogHeader>
           <DialogTitle>Place Order via WhatsApp</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleOrder} className="space-y-4 pt-2">
+        <form onSubmit={handleOrder} className="space-y-3 pt-2">
           <div className="p-3 bg-slate-50 rounded-lg text-sm">
             <p className="font-semibold">{product.name}</p>
-            <p className="text-primary font-bold text-base mt-1">₹{product.price} / unit</p>
+            <p className="text-primary font-bold text-base mt-1">₹{parseFloat(product.price).toLocaleString("en-IN")} / unit</p>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="order-name">Your Name</Label>
+            <Label htmlFor="order-name">Full Name *</Label>
             <Input
               id="order-name"
               data-testid="input-order-name"
-              placeholder="Enter your name"
+              placeholder="Enter your full name"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="order-phone">Phone Number *</Label>
+            <Input
+              id="order-phone"
+              data-testid="input-order-phone"
+              placeholder="+91 98765 43210"
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="order-location">Delivery Location *</Label>
+            <Input
+              id="order-location"
+              data-testid="input-order-location"
+              placeholder="City, Area or full address"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
               required
             />
           </div>
@@ -100,7 +129,7 @@ function OrderDialog({
           <Button
             type="submit"
             className="w-full bg-green-600 hover:bg-green-700 text-white flex gap-2"
-            disabled={loading || !name.trim()}
+            disabled={loading || !name.trim() || !phone.trim() || !location.trim()}
             data-testid="button-confirm-order"
           >
             <MessageCircle className="h-4 w-4" />

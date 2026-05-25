@@ -374,6 +374,8 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
                     <TableRow>
                       <TableHead>Order ID</TableHead>
                       <TableHead>Customer</TableHead>
+                      <TableHead>Phone</TableHead>
+                      <TableHead>Location</TableHead>
                       <TableHead>Total</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Date</TableHead>
@@ -385,7 +387,9 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
                       <TableRow key={order.id}>
                         <TableCell>#{order.id}</TableCell>
                         <TableCell>{order.customerName}</TableCell>
-                        <TableCell>₹{order.total}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{order.phone || "—"}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{order.location || "—"}</TableCell>
+                        <TableCell>₹{Number(order.total).toLocaleString("en-IN")}</TableCell>
                         <TableCell>
                           <Badge variant={
                             order.status === "completed" ? "default" :

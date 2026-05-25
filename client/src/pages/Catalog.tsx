@@ -1,11 +1,14 @@
+import { useState } from "react";
 import { Navigation } from "@/components/Navigation";
 import { Footer } from "@/components/Footer";
 import { ProductCard } from "@/components/ProductCard";
+import { AIPhotoScanner } from "@/components/AIPhotoScanner";
 import { useProducts } from "@/hooks/use-products";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { Sparkles, Camera } from "lucide-react";
 
 const categories = [
   { id: "all", label: "All Products" },
@@ -18,6 +21,7 @@ const categories = [
 ];
 
 export default function Catalog() {
+  const [scannerOpen, setScannerOpen] = useState(false);
   const [location, setLocation] = useLocation();
   const searchParams = new URLSearchParams(window.location.search);
   const activeCategory = searchParams.get("category") || "all";
@@ -47,12 +51,27 @@ export default function Catalog() {
       
       <div className="bg-slate-50 border-b">
         <div className="container px-4 py-12">
-          <h1 className="text-4xl font-display font-bold mb-4">Our Collection</h1>
-          <p className="text-muted-foreground max-w-2xl">
-            Browse our extensive catalog of premium home fittings. Filter by category to find exactly what you need for your renovation project.
-          </p>
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+            <div>
+              <h1 className="text-4xl font-display font-bold mb-4">Our Collection</h1>
+              <p className="text-muted-foreground max-w-2xl">
+                Browse our extensive catalog of premium home fittings. Filter by category or use AI to find products from a photo.
+              </p>
+            </div>
+            <Button
+              onClick={() => setScannerOpen(true)}
+              className="flex items-center gap-2 shrink-0 bg-primary/90 hover:bg-primary shadow-md"
+              data-testid="button-ai-scanner"
+            >
+              <Camera className="h-4 w-4" />
+              <Sparkles className="h-3.5 w-3.5" />
+              Find by Photo (AI)
+            </Button>
+          </div>
         </div>
       </div>
+
+      <AIPhotoScanner open={scannerOpen} onClose={() => setScannerOpen(false)} />
 
       <div className="container px-4 py-12 flex flex-col lg:flex-row gap-12">
         {/* Sidebar Filters */}

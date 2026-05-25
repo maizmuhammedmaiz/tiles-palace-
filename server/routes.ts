@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
@@ -135,19 +136,58 @@ export async function registerRoutes(
   // Public order creation (from product page — saved to DB)
   app.post("/api/orders", async (req, res) => {
     try {
-      const { customerName, productId, productName, price, quantity } = req.body;
+      const { customerName, phone, location, productId, productName, price, quantity } = req.body;
       if (!customerName || !productId || !price) {
         return res.status(400).json({ message: "Missing required fields" });
       }
       const qty = quantity || 1;
       const total = (parseFloat(price) * qty).toFixed(2);
       const order = await storage.createOrder(
-        { customerName, total, createdAt: new Date().toISOString() },
+        { customerName, phone: phone || null, location: location || null, total, createdAt: new Date().toISOString() },
         [{ orderId: 0, productId: parseInt(productId), quantity: qty, price: String(price) }]
       );
       res.status(201).json(order);
     } catch (err) {
       res.status(500).json({ message: "Failed to create order" });
+    }
+  });
+
+  // Gemini AI Photo Scanner — identify product from image
+  app.post("/api/ai/scan-product", async (req, res) => {
+    try {
+      const { imageBase64, mimeType } = req.body;
+      if (!imageBase64) return res.status(400).json({ message: "No image provided" });
+
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) return res.status(503).json({ message: "AI scanner not configured. Please add your GEMINI_API_KEY." });
+
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+      const categories = ["Tiles", "Lighting", "Kitchen Fittings", "Showers", "Washbasins", "Water Heaters"];
+
+      const prompt = `You are a home fittings product identifier for a store called Tiles Palace.
+Look at this image and identify what home fitting or product is shown.
+Our store categories are: ${categories.join(", ")}.
+
+Respond with JSON only (no markdown), with these fields:
+- "category": the most matching category from our list, or null if none match
+- "searchQuery": a short 1-3 word search term describing the product (e.g. "marble floor tiles", "rainfall shower", "pendant light")
+- "description": one sentence describing what you see in the image
+- "confidence": "high", "medium", or "low"`;
+
+      const result = await model.generateContent([
+        { inlineData: { data: imageBase64, mimeType: mimeType || "image/jpeg" } },
+        { text: prompt }
+      ]);
+
+      const text = result.response.text().trim();
+      const jsonText = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+      const parsed = JSON.parse(jsonText);
+      res.json(parsed);
+    } catch (err: any) {
+      console.error("Gemini scan error:", err?.message);
+      res.status(500).json({ message: "Could not analyse image. Please try again." });
     }
   });
 
