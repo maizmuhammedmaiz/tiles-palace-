@@ -14,7 +14,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertProductSchema, type Product, type Order, type Service } from "@shared/schema";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Plus, ShoppingCart, Package, BarChart3, Check, LogOut, Printer, Image as ImageIcon, Lock, Trash2, Images, Video } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
@@ -492,73 +492,143 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
           </TabsContent>
 
           <TabsContent value="analytics">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm font-medium">Daily Sales</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-2xl font-bold">₹{salesData?.[0]?.total || "0"}</p>
+            {/* Summary Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+              <Card className="border-l-4 border-l-primary">
+                <CardContent className="pt-5 pb-4">
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-1">Today's Sales</p>
+                  <p className="text-2xl font-bold text-primary">
+                    ₹{Number(salesData?.[salesData.length - 1]?.total || 0).toLocaleString("en-IN")}
+                  </p>
                 </CardContent>
               </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm font-medium">Monthly Sales</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-2xl font-bold">₹{monthlySalesData?.[0]?.total || "0"}</p>
+              <Card className="border-l-4 border-l-blue-500">
+                <CardContent className="pt-5 pb-4">
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-1">This Month</p>
+                  <p className="text-2xl font-bold text-blue-600">
+                    ₹{Number(monthlySalesData?.[monthlySalesData.length - 1]?.total || 0).toLocaleString("en-IN")}
+                  </p>
                 </CardContent>
               </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm font-medium">Daily Orders</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-2xl font-bold">{salesData?.[0]?.count || "0"}</p>
+              <Card className="border-l-4 border-l-green-500">
+                <CardContent className="pt-5 pb-4">
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-1">Today's Orders</p>
+                  <p className="text-2xl font-bold text-green-600">
+                    {salesData?.[salesData.length - 1]?.count || 0}
+                  </p>
                 </CardContent>
               </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm font-medium">Monthly Orders</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-2xl font-bold">{monthlySalesData?.[0]?.count || "0"}</p>
+              <Card className="border-l-4 border-l-orange-500">
+                <CardContent className="pt-5 pb-4">
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-1">Monthly Orders</p>
+                  <p className="text-2xl font-bold text-orange-600">
+                    {monthlySalesData?.[monthlySalesData.length - 1]?.count || 0}
+                  </p>
                 </CardContent>
               </Card>
             </div>
 
+            {/* Daily Sales Area Chart */}
+            <div className="grid grid-cols-1 gap-6 mb-6">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg">Daily Sales (₹)</CardTitle>
+                  <p className="text-sm text-muted-foreground">Revenue from completed orders per day</p>
+                </CardHeader>
+                <CardContent>
+                  {!salesData?.length ? (
+                    <div className="h-[280px] flex items-center justify-center text-muted-foreground bg-slate-50 rounded-lg border border-dashed">
+                      <div className="text-center">
+                        <BarChart3 className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                        <p className="text-sm">No sales data yet. Complete some orders to see the graph.</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height={280}>
+                      <AreaChart data={salesData.map(d => ({ ...d, total: Number(d.total) }))} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                        <defs>
+                          <linearGradient id="salesGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.25} />
+                            <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                        <XAxis dataKey="date" tick={{ fontSize: 12 }} tickLine={false} />
+                        <YAxis tick={{ fontSize: 12 }} tickLine={false} axisLine={false} tickFormatter={(v) => `₹${Number(v).toLocaleString("en-IN")}`} width={80} />
+                        <Tooltip formatter={(v: any) => [`₹${Number(v).toLocaleString("en-IN")}`, "Sales"]} />
+                        <Area type="monotone" dataKey="total" stroke="hsl(var(--primary))" strokeWidth={2.5} fill="url(#salesGradient)" dot={{ r: 4, fill: "hsl(var(--primary))" }} activeDot={{ r: 6 }} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Monthly Sales + Orders Bar Charts */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card>
-                <CardHeader>
-                  <CardTitle>Daily Sales Trend</CardTitle>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg">Monthly Revenue (₹)</CardTitle>
+                  <p className="text-sm text-muted-foreground">Total sales per month</p>
                 </CardHeader>
-                <CardContent className="h-[400px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={salesData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" />
-                      <YAxis />
-                      <Tooltip />
-                      <Line type="monotone" dataKey="total" stroke="hsl(var(--primary))" strokeWidth={2} />
-                    </LineChart>
-                  </ResponsiveContainer>
+                <CardContent>
+                  {!monthlySalesData?.length ? (
+                    <div className="h-[260px] flex items-center justify-center text-muted-foreground bg-slate-50 rounded-lg border border-dashed">
+                      <div className="text-center">
+                        <BarChart3 className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                        <p className="text-sm">No monthly data yet.</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height={260}>
+                      <BarChart data={monthlySalesData.map(d => ({ ...d, total: Number(d.total) }))} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                        <defs>
+                          <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.9} />
+                            <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.5} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                        <XAxis dataKey="month" tick={{ fontSize: 12 }} tickLine={false} />
+                        <YAxis tick={{ fontSize: 12 }} tickLine={false} axisLine={false} tickFormatter={(v) => `₹${Number(v).toLocaleString("en-IN")}`} width={80} />
+                        <Tooltip formatter={(v: any) => [`₹${Number(v).toLocaleString("en-IN")}`, "Revenue"]} />
+                        <Bar dataKey="total" fill="url(#barGradient)" radius={[6, 6, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
                 </CardContent>
               </Card>
 
               <Card>
-                <CardHeader>
-                  <CardTitle>Monthly Sales Trend</CardTitle>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg">Orders Per Day</CardTitle>
+                  <p className="text-sm text-muted-foreground">Number of completed orders daily</p>
                 </CardHeader>
-                <CardContent className="h-[400px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={monthlySalesData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="month" />
-                      <YAxis />
-                      <Tooltip />
-                      <Line type="monotone" dataKey="total" stroke="hsl(var(--primary))" strokeWidth={2} />
-                    </LineChart>
-                  </ResponsiveContainer>
+                <CardContent>
+                  {!salesData?.length ? (
+                    <div className="h-[260px] flex items-center justify-center text-muted-foreground bg-slate-50 rounded-lg border border-dashed">
+                      <div className="text-center">
+                        <BarChart3 className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                        <p className="text-sm">No order data yet.</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height={260}>
+                      <BarChart data={salesData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                        <defs>
+                          <linearGradient id="ordersGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#10b981" stopOpacity={0.9} />
+                            <stop offset="100%" stopColor="#10b981" stopOpacity={0.5} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                        <XAxis dataKey="date" tick={{ fontSize: 12 }} tickLine={false} />
+                        <YAxis tick={{ fontSize: 12 }} tickLine={false} axisLine={false} allowDecimals={false} />
+                        <Tooltip formatter={(v: any) => [v, "Orders"]} />
+                        <Bar dataKey="count" fill="url(#ordersGradient)" radius={[6, 6, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
                 </CardContent>
               </Card>
             </div>
