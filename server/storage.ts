@@ -9,11 +9,14 @@ export interface IStorage {
   updateProduct(id: number, product: Partial<InsertProduct>): Promise<Product>;
   createInquiry(inquiry: InsertInquiry): Promise<Inquiry>;
   getServices(): Promise<Service[]>;
+  createService(service: InsertService): Promise<Service>;
+  deleteService(id: number): Promise<void>;
   getOrders(): Promise<Order[]>;
   getOrderItems(orderId: number): Promise<OrderItem[]>;
   createOrder(order: InsertOrder, items: InsertOrderItem[]): Promise<Order>;
   updateOrderStatus(id: number, status: string): Promise<Order>;
   getDailySales(): Promise<{ date: string; total: string; count: number }[]>;
+  getMonthlySales(): Promise<{ month: string; total: string; count: number }[]>;
   seedProducts(): Promise<void>;
   seedServices(): Promise<void>;
 }
@@ -48,6 +51,15 @@ export class DatabaseStorage implements IStorage {
 
   async getServices(): Promise<Service[]> {
     return await db.select().from(services);
+  }
+
+  async createService(service: InsertService): Promise<Service> {
+    const [newService] = await db.insert(services).values(service).returning();
+    return newService;
+  }
+
+  async deleteService(id: number): Promise<void> {
+    await db.delete(services).where(eq(services.id, id));
   }
 
   async getOrders(): Promise<Order[]> {

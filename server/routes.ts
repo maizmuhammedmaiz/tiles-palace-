@@ -120,6 +120,37 @@ export async function registerRoutes(
     res.json(sales);
   });
 
+  // Admin portfolio (Our Work) management
+  app.post("/api/admin/services", requireAdmin, async (req, res) => {
+    const service = await storage.createService(req.body);
+    res.status(201).json(service);
+  });
+
+  app.delete("/api/admin/services/:id", requireAdmin, async (req, res) => {
+    const id = parseInt(req.params.id);
+    await storage.deleteService(id);
+    res.json({ success: true });
+  });
+
+  // Public order creation (from product page — saved to DB)
+  app.post("/api/orders", async (req, res) => {
+    try {
+      const { customerName, productId, productName, price, quantity } = req.body;
+      if (!customerName || !productId || !price) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+      const qty = quantity || 1;
+      const total = (parseFloat(price) * qty).toFixed(2);
+      const order = await storage.createOrder(
+        { customerName, total, createdAt: new Date().toISOString() },
+        [{ orderId: 0, productId: parseInt(productId), quantity: qty, price: String(price) }]
+      );
+      res.status(201).json(order);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to create order" });
+    }
+  });
+
   // Seed Data
   await storage.seedProducts();
   await storage.seedServices();

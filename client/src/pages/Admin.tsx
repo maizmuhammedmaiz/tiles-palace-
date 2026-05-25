@@ -13,9 +13,9 @@ import { useToast } from "@/hooks/use-toast";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertProductSchema, type Product, type Order } from "@shared/schema";
+import { insertProductSchema, type Product, type Order, type Service } from "@shared/schema";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { Plus, ShoppingCart, Package, BarChart3, Check, LogOut, Printer, Image as ImageIcon, Lock } from "lucide-react";
+import { Plus, ShoppingCart, Package, BarChart3, Check, LogOut, Printer, Image as ImageIcon, Lock, Trash2, Images, Video } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
@@ -114,6 +114,30 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
     queryKey: ["/api/admin/orders"],
   });
 
+  const { data: portfolioItems } = useQuery<Service[]>({
+    queryKey: ["/api/services"],
+  });
+
+  const addPortfolioMutation = useMutation({
+    mutationFn: async (data: any) => {
+      await apiRequest("POST", "/api/admin/services", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/services"] });
+      toast({ title: "Portfolio item added" });
+    },
+  });
+
+  const deletePortfolioMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/admin/services/${id}`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/services"] });
+      toast({ title: "Portfolio item removed" });
+    },
+  });
+
   const { data: salesData } = useQuery<{ date: string; total: string; count: number }[]>({
     queryKey: ["/api/admin/analytics/daily-sales"],
   });
@@ -171,7 +195,7 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4 mb-8">
+          <TabsList className="grid w-full grid-cols-5 mb-8">
             <TabsTrigger value="inventory" className="flex gap-2">
               <Package className="h-4 w-4" /> Inventory
             </TabsTrigger>
@@ -180,6 +204,9 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
             </TabsTrigger>
             <TabsTrigger value="orders" className="flex gap-2">
               <Check className="h-4 w-4" /> Orders
+            </TabsTrigger>
+            <TabsTrigger value="portfolio" className="flex gap-2">
+              <Images className="h-4 w-4" /> Our Work
             </TabsTrigger>
             <TabsTrigger value="analytics" className="flex gap-2">
               <BarChart3 className="h-4 w-4" /> Analytics
@@ -396,6 +423,74 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
             </Card>
           </TabsContent>
 
+          <TabsContent value="portfolio">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>Our Work — Portfolio</CardTitle>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button className="flex gap-2">
+                      <Plus className="h-4 w-4" /> Add Photo / Video
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Add Portfolio Item</DialogTitle>
+                    </DialogHeader>
+                    <PortfolioForm
+                      onSubmit={(data) => addPortfolioMutation.mutate(data)}
+                      isPending={addPortfolioMutation.isPending}
+                    />
+                  </DialogContent>
+                </Dialog>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {portfolioItems?.map((item) => (
+                    <div key={item.id} className="relative group rounded-xl overflow-hidden border bg-slate-50">
+                      <div className="aspect-video bg-black relative">
+                        {item.type === "video" && item.videoUrl ? (
+                          <div className="w-full h-full flex items-center justify-center bg-slate-900">
+                            <Video className="h-10 w-10 text-white/50" />
+                            <span className="absolute bottom-2 left-2 text-xs text-white/70 bg-black/50 px-2 py-1 rounded">Video</span>
+                          </div>
+                        ) : (
+                          <img
+                            src={item.imageUrl || ""}
+                            alt={item.title}
+                            className="w-full h-full object-cover"
+                          />
+                        )}
+                      </div>
+                      <div className="p-3">
+                        <p className="font-semibold text-sm truncate">{item.title}</p>
+                        <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{item.description}</p>
+                        <div className="flex items-center justify-between mt-2">
+                          <Badge variant="secondary" className="text-xs capitalize">{item.type}</Badge>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            className="h-7 px-2"
+                            onClick={() => deletePortfolioMutation.mutate(item.id)}
+                            disabled={deletePortfolioMutation.isPending}
+                            data-testid={`button-delete-portfolio-${item.id}`}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {!portfolioItems?.length && (
+                    <div className="col-span-full text-center py-16 text-muted-foreground border border-dashed rounded-xl">
+                      No portfolio items yet. Add a photo or video above.
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           <TabsContent value="analytics">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
               <Card>
@@ -498,6 +593,95 @@ export default function Admin() {
   }
 
   return <AdminDashboard onLogout={handleLogout} />;
+}
+
+function PortfolioForm({ onSubmit, isPending }: { onSubmit: (data: any) => void; isPending: boolean }) {
+  const [type, setType] = useState<"photo" | "video">("photo");
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
+  const [videoUrl, setVideoUrl] = useState("");
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit({ type, title, description, imageUrl: type === "photo" ? imageUrl : null, videoUrl: type === "video" ? videoUrl : null });
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+      <div className="space-y-2">
+        <Label>Type</Label>
+        <div className="flex gap-3">
+          <Button
+            type="button"
+            variant={type === "photo" ? "default" : "outline"}
+            className="flex-1 flex gap-2"
+            onClick={() => setType("photo")}
+          >
+            <ImageIcon className="h-4 w-4" /> Photo
+          </Button>
+          <Button
+            type="button"
+            variant={type === "video" ? "default" : "outline"}
+            className="flex-1 flex gap-2"
+            onClick={() => setType("video")}
+          >
+            <Video className="h-4 w-4" /> Video
+          </Button>
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="portfolio-title">Title</Label>
+        <Input
+          id="portfolio-title"
+          placeholder="e.g. Modern Bathroom Renovation"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          required
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="portfolio-desc">Description</Label>
+        <Input
+          id="portfolio-desc"
+          placeholder="Brief description of the project"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          required
+        />
+      </div>
+      {type === "photo" ? (
+        <div className="space-y-2">
+          <Label htmlFor="portfolio-img">Image URL</Label>
+          <Input
+            id="portfolio-img"
+            placeholder="https://..."
+            value={imageUrl}
+            onChange={(e) => setImageUrl(e.target.value)}
+            required
+          />
+          {imageUrl && (
+            <img src={imageUrl} alt="Preview" className="w-full h-32 object-cover rounded-md border mt-2" />
+          )}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <Label htmlFor="portfolio-video">Video URL</Label>
+          <Input
+            id="portfolio-video"
+            placeholder="YouTube, Vimeo, or direct video URL"
+            value={videoUrl}
+            onChange={(e) => setVideoUrl(e.target.value)}
+            required
+          />
+          <p className="text-xs text-muted-foreground">Supports YouTube, Vimeo, and direct MP4 links.</p>
+        </div>
+      )}
+      <Button type="submit" className="w-full" disabled={isPending}>
+        {isPending ? "Adding..." : "Add to Portfolio"}
+      </Button>
+    </form>
+  );
 }
 
 function ProductForm({ onSubmit, isPending }: { onSubmit: (data: any) => void; isPending: boolean }) {
