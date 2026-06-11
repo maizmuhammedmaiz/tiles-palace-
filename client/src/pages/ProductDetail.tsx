@@ -71,7 +71,7 @@ function OrderSuccessView({
       <div className="flex flex-col items-center text-center py-4 bg-green-50 rounded-xl border border-green-100">
         <CheckCircle2 className="h-12 w-12 text-green-500 mb-2" />
         <h3 className="font-bold text-lg text-green-800">Order Placed Successfully!</h3>
-        <p className="text-sm text-green-700 mt-1">Your order has been saved to our system.</p>
+        <p className="text-sm text-green-700 mt-1">WhatsApp confirmation sent to customer automatically.</p>
       </div>
 
       {/* Order summary */}
@@ -81,10 +81,15 @@ function OrderSuccessView({
         <p className="text-muted-foreground">📍 {summary.location}</p>
       </div>
 
-      {/* WhatsApp actions */}
-      <div className="space-y-2">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Send WhatsApp Notifications</p>
+      {/* Auto-sent notice */}
+      <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-100 rounded-lg text-sm text-emerald-800">
+        <MessageCircle className="h-4 w-4 flex-shrink-0 text-emerald-600" />
+        <span>Customer confirmation sent to <strong>{summary.phone}</strong> via WhatsApp</span>
+      </div>
 
+      {/* Seller notification */}
+      <div className="space-y-2">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Also notify your store</p>
         <Button
           className="w-full bg-green-600 hover:bg-green-700 text-white flex gap-2 justify-start h-12"
           onClick={() => window.open(`https://wa.me/${sellerWhatsapp}?text=${encodeURIComponent(sellerMsg)}`, "_blank")}
@@ -92,20 +97,8 @@ function OrderSuccessView({
         >
           <Store className="h-5 w-5 flex-shrink-0" />
           <div className="text-left">
-            <p className="text-sm font-semibold leading-tight">Notify Store</p>
-            <p className="text-xs opacity-80 leading-tight">Send order details to seller</p>
-          </div>
-        </Button>
-
-        <Button
-          className="w-full bg-emerald-500 hover:bg-emerald-600 text-white flex gap-2 justify-start h-12"
-          onClick={() => window.open(`https://wa.me/${customerWaNum}?text=${encodeURIComponent(customerMsg)}`, "_blank")}
-          data-testid="button-confirm-customer"
-        >
-          <User className="h-5 w-5 flex-shrink-0" />
-          <div className="text-left">
-            <p className="text-sm font-semibold leading-tight">Send Confirmation to Customer</p>
-            <p className="text-xs opacity-80 leading-tight">Open WhatsApp to {summary.phone}</p>
+            <p className="text-sm font-semibold leading-tight">Notify Store on WhatsApp</p>
+            <p className="text-xs opacity-80 leading-tight">Send full order details to seller</p>
           </div>
         </Button>
       </div>
@@ -169,8 +162,22 @@ function OrderDialog({
         }),
       });
       const total = (parseFloat(product.price) * quantity).toLocaleString("en-IN");
-      setOrderSummary({ name: name.trim(), phone: phone.trim(), location: location.trim(), quantity, total });
-      toast({ title: "Order placed!", description: "Notify the store and send your confirmation via WhatsApp below." });
+      const summary: OrderSummary = { name: name.trim(), phone: phone.trim(), location: location.trim(), quantity, total };
+      setOrderSummary(summary);
+
+      const customerMsg =
+        `✅ *Your order has been placed at Tiles Palace!*\n\n` +
+        `📦 Product: ${product.name}\n` +
+        `🔢 Quantity: ${summary.quantity}\n` +
+        `💰 Total: ₹${summary.total}\n` +
+        `📍 Delivery to: ${summary.location}\n\n` +
+        `Our team will contact you shortly to confirm your order.\n` +
+        `Thank you for shopping with us! 🙏\n` +
+        `— Tiles Palace Team`;
+      const customerWaNum = formatWhatsAppNumber(summary.phone);
+      window.open(`https://wa.me/${customerWaNum}?text=${encodeURIComponent(customerMsg)}`, "_blank");
+
+      toast({ title: "Order placed! 🎉", description: "WhatsApp confirmation sent to customer automatically." });
     } catch {
       toast({ title: "Error", description: "Could not save order. Please try again.", variant: "destructive" });
     } finally {
