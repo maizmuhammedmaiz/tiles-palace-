@@ -9,12 +9,111 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { InquiryDialog } from "@/components/InquiryDialog";
-import { ArrowLeft, Check, Shield, Truck, MessageCircle } from "lucide-react";
+import { ArrowLeft, Check, Shield, Truck, MessageCircle, CheckCircle2, Store, User } from "lucide-react";
 import { Link } from "wouter";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 
-const WHATSAPP_NUMBER = "15551234567";
+const SELLER_WHATSAPP = "15551234567"; // Replace with real seller WhatsApp number
+
+function formatWhatsAppNumber(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.startsWith("91") && digits.length === 12) return digits;
+  if (digits.length === 10 && /^[6-9]/.test(digits)) return "91" + digits;
+  return digits;
+}
+
+interface OrderSummary {
+  name: string;
+  phone: string;
+  location: string;
+  quantity: number;
+  total: string;
+}
+
+function OrderSuccessView({
+  product,
+  summary,
+  onClose,
+}: {
+  product: { name: string; price: string };
+  summary: OrderSummary;
+  onClose: () => void;
+}) {
+  const sellerMsg =
+    `🔔 *New Order Received!*\n\n` +
+    `📦 Product: ${product.name}\n` +
+    `🔢 Quantity: ${summary.quantity}\n` +
+    `💰 Total: ₹${summary.total}\n\n` +
+    `*Customer Details:*\n` +
+    `👤 Name: ${summary.name}\n` +
+    `📱 Phone: ${summary.phone}\n` +
+    `📍 Location: ${summary.location}\n\n` +
+    `Please confirm this order.`;
+
+  const customerMsg =
+    `✅ *Your order has been placed at Tiles Palace!*\n\n` +
+    `📦 Product: ${product.name}\n` +
+    `🔢 Quantity: ${summary.quantity}\n` +
+    `💰 Total: ₹${summary.total}\n` +
+    `📍 Delivery to: ${summary.location}\n\n` +
+    `Our team will contact you shortly to confirm your order.\n` +
+    `Thank you for shopping with us! 🙏\n` +
+    `— Tiles Palace Team`;
+
+  const customerWaNum = formatWhatsAppNumber(summary.phone);
+
+  return (
+    <div className="space-y-4 pt-1">
+      {/* Success header */}
+      <div className="flex flex-col items-center text-center py-4 bg-green-50 rounded-xl border border-green-100">
+        <CheckCircle2 className="h-12 w-12 text-green-500 mb-2" />
+        <h3 className="font-bold text-lg text-green-800">Order Placed Successfully!</h3>
+        <p className="text-sm text-green-700 mt-1">Your order has been saved to our system.</p>
+      </div>
+
+      {/* Order summary */}
+      <div className="p-3 bg-slate-50 rounded-lg text-sm space-y-1">
+        <p className="font-semibold text-slate-800">{product.name}</p>
+        <p className="text-muted-foreground">Qty: {summary.quantity} &nbsp;·&nbsp; Total: <span className="font-bold text-primary">₹{summary.total}</span></p>
+        <p className="text-muted-foreground">📍 {summary.location}</p>
+      </div>
+
+      {/* WhatsApp actions */}
+      <div className="space-y-2">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Send WhatsApp Notifications</p>
+
+        <Button
+          className="w-full bg-green-600 hover:bg-green-700 text-white flex gap-2 justify-start h-12"
+          onClick={() => window.open(`https://wa.me/${SELLER_WHATSAPP}?text=${encodeURIComponent(sellerMsg)}`, "_blank")}
+          data-testid="button-notify-seller"
+        >
+          <Store className="h-5 w-5 flex-shrink-0" />
+          <div className="text-left">
+            <p className="text-sm font-semibold leading-tight">Notify Store</p>
+            <p className="text-xs opacity-80 leading-tight">Send order details to seller</p>
+          </div>
+        </Button>
+
+        <Button
+          className="w-full bg-emerald-500 hover:bg-emerald-600 text-white flex gap-2 justify-start h-12"
+          onClick={() => window.open(`https://wa.me/${customerWaNum}?text=${encodeURIComponent(customerMsg)}`, "_blank")}
+          data-testid="button-confirm-customer"
+        >
+          <User className="h-5 w-5 flex-shrink-0" />
+          <div className="text-left">
+            <p className="text-sm font-semibold leading-tight">Send Confirmation to Customer</p>
+            <p className="text-xs opacity-80 leading-tight">Open WhatsApp to {summary.phone}</p>
+          </div>
+        </Button>
+      </div>
+
+      <Button variant="outline" className="w-full" onClick={onClose} data-testid="button-close-success">
+        Done
+      </Button>
+    </div>
+  );
+}
 
 function OrderDialog({
   open,
@@ -30,7 +129,19 @@ function OrderDialog({
   const [location, setLocation] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [orderSummary, setOrderSummary] = useState<OrderSummary | null>(null);
   const { toast } = useToast();
+
+  const handleClose = () => {
+    onClose();
+    setTimeout(() => {
+      setOrderSummary(null);
+      setName("");
+      setPhone("");
+      setLocation("");
+      setQuantity(1);
+    }, 300);
+  };
 
   const handleOrder = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,15 +161,9 @@ function OrderDialog({
           quantity,
         }),
       });
-      const total = (parseFloat(product.price) * quantity).toFixed(0);
-      const msg = `Hi! I'd like to order from Tiles Palace:\n\nProduct: ${product.name}\nQuantity: ${quantity}\nTotal: ₹${total}\n\nCustomer Details:\nName: ${name.trim()}\nPhone: ${phone.trim()}\nLocation: ${location.trim()}`;
-      window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`, "_blank");
-      toast({ title: "Order placed!", description: "Your order has been saved and sent via WhatsApp." });
-      onClose();
-      setName("");
-      setPhone("");
-      setLocation("");
-      setQuantity(1);
+      const total = (parseFloat(product.price) * quantity).toLocaleString("en-IN");
+      setOrderSummary({ name: name.trim(), phone: phone.trim(), location: location.trim(), quantity, total });
+      toast({ title: "Order placed!", description: "Notify the store and send your confirmation via WhatsApp below." });
     } catch {
       toast({ title: "Error", description: "Could not save order. Please try again.", variant: "destructive" });
     } finally {
@@ -67,75 +172,82 @@ function OrderDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>Place Order via WhatsApp</DialogTitle>
+          <DialogTitle>
+            {orderSummary ? "Order Confirmed ✅" : "Place Order via WhatsApp"}
+          </DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleOrder} className="space-y-3 pt-2">
-          <div className="p-3 bg-slate-50 rounded-lg text-sm">
-            <p className="font-semibold">{product.name}</p>
-            <p className="text-primary font-bold text-base mt-1">₹{parseFloat(product.price).toLocaleString("en-IN")} / unit</p>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="order-name">Full Name *</Label>
-            <Input
-              id="order-name"
-              data-testid="input-order-name"
-              placeholder="Enter your full name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="order-phone">Phone Number *</Label>
-            <Input
-              id="order-phone"
-              data-testid="input-order-phone"
-              placeholder="+91 98765 43210"
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="order-location">Delivery Location *</Label>
-            <Input
-              id="order-location"
-              data-testid="input-order-location"
-              placeholder="City, Area or full address"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="order-qty">Quantity</Label>
-            <Input
-              id="order-qty"
-              data-testid="input-order-quantity"
-              type="number"
-              min={1}
-              value={quantity}
-              onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-            />
-          </div>
-          <div className="flex justify-between items-center pt-1 border-t text-sm font-semibold">
-            <span>Total</span>
-            <span className="text-primary text-base">₹{(parseFloat(product.price) * quantity).toLocaleString("en-IN")}</span>
-          </div>
-          <Button
-            type="submit"
-            className="w-full bg-green-600 hover:bg-green-700 text-white flex gap-2"
-            disabled={loading || !name.trim() || !phone.trim() || !location.trim()}
-            data-testid="button-confirm-order"
-          >
-            <MessageCircle className="h-4 w-4" />
-            {loading ? "Placing Order..." : "Confirm & Send via WhatsApp"}
-          </Button>
-        </form>
+
+        {orderSummary ? (
+          <OrderSuccessView product={product} summary={orderSummary} onClose={handleClose} />
+        ) : (
+          <form onSubmit={handleOrder} className="space-y-3 pt-2">
+            <div className="p-3 bg-slate-50 rounded-lg text-sm">
+              <p className="font-semibold">{product.name}</p>
+              <p className="text-primary font-bold text-base mt-1">₹{parseFloat(product.price).toLocaleString("en-IN")} / unit</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="order-name">Full Name *</Label>
+              <Input
+                id="order-name"
+                data-testid="input-order-name"
+                placeholder="Enter your full name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="order-phone">Phone Number *</Label>
+              <Input
+                id="order-phone"
+                data-testid="input-order-phone"
+                placeholder="+91 98765 43210"
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="order-location">Delivery Location *</Label>
+              <Input
+                id="order-location"
+                data-testid="input-order-location"
+                placeholder="City, Area or full address"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="order-qty">Quantity</Label>
+              <Input
+                id="order-qty"
+                data-testid="input-order-quantity"
+                type="number"
+                min={1}
+                value={quantity}
+                onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+              />
+            </div>
+            <div className="flex justify-between items-center pt-1 border-t text-sm font-semibold">
+              <span>Total</span>
+              <span className="text-primary text-base">₹{(parseFloat(product.price) * quantity).toLocaleString("en-IN")}</span>
+            </div>
+            <Button
+              type="submit"
+              className="w-full bg-green-600 hover:bg-green-700 text-white flex gap-2"
+              disabled={loading || !name.trim() || !phone.trim() || !location.trim()}
+              data-testid="button-confirm-order"
+            >
+              <MessageCircle className="h-4 w-4" />
+              {loading ? "Placing Order..." : "Place Order"}
+            </Button>
+          </form>
+        )}
       </DialogContent>
     </Dialog>
   );
