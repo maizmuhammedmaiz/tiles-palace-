@@ -94,6 +94,11 @@ export async function registerRoutes(
     res.json(product);
   });
 
+  app.get("/api/admin/inquiries", requireAdmin, async (req, res) => {
+    const items = await storage.getInquiries();
+    res.json(items);
+  });
+
   app.get("/api/admin/orders", requireAdmin, async (req, res) => {
     const orders = await storage.getOrders();
     res.json(orders);

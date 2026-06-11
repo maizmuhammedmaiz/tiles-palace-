@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertProductSchema, type Product, type Order, type Service, type StoreSettings } from "@shared/schema";
+import { insertProductSchema, type Product, type Order, type Service, type StoreSettings, type Inquiry } from "@shared/schema";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Plus, ShoppingCart, Package, BarChart3, Check, LogOut, Printer, Image as ImageIcon, Lock, Trash2, Images, Video, Settings, MessageCircle as MessageCircleIcon, Store as StoreIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -112,6 +112,10 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
 
   const { data: orders } = useQuery<Order[]>({
     queryKey: ["/api/admin/orders"],
+  });
+
+  const { data: inquiriesList } = useQuery<Inquiry[]>({
+    queryKey: ["/api/admin/inquiries"],
   });
 
   const { data: portfolioItems } = useQuery<Service[]>({
@@ -233,7 +237,7 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-6 mb-8">
+          <TabsList className="grid w-full grid-cols-7 mb-8">
             <TabsTrigger value="inventory" className="flex gap-2">
               <Package className="h-4 w-4" /> Inventory
             </TabsTrigger>
@@ -242,6 +246,14 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
             </TabsTrigger>
             <TabsTrigger value="orders" className="flex gap-2">
               <Check className="h-4 w-4" /> Orders
+            </TabsTrigger>
+            <TabsTrigger value="inquiries" className="flex gap-2 relative">
+              <MessageCircleIcon className="h-4 w-4" /> Enquiries
+              {inquiriesList && inquiriesList.length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                  {inquiriesList.length > 9 ? "9+" : inquiriesList.length}
+                </span>
+              )}
             </TabsTrigger>
             <TabsTrigger value="portfolio" className="flex gap-2">
               <Images className="h-4 w-4" /> Our Work
@@ -464,6 +476,64 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
                     ))}
                   </TableBody>
                 </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="inquiries">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MessageCircleIcon className="h-5 w-5 text-primary" />
+                  Customer Enquiries
+                  {inquiriesList && inquiriesList.length > 0 && (
+                    <Badge variant="secondary">{inquiriesList.length} total</Badge>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {!inquiriesList || inquiriesList.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <MessageCircleIcon className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                    <p className="font-medium">No enquiries yet</p>
+                    <p className="text-sm">Customer enquiries from the website will appear here.</p>
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>#</TableHead>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Phone</TableHead>
+                        <TableHead>Message</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {inquiriesList.map((inq) => (
+                        <TableRow key={inq.id} data-testid={`row-inquiry-${inq.id}`}>
+                          <TableCell className="text-muted-foreground">#{inq.id}</TableCell>
+                          <TableCell className="font-medium">{inq.name}</TableCell>
+                          <TableCell>
+                            <a href={`mailto:${inq.email}`} className="text-primary hover:underline text-sm">
+                              {inq.email}
+                            </a>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {inq.phone ? (
+                              <a href={`tel:${inq.phone}`} className="hover:underline">{inq.phone}</a>
+                            ) : "—"}
+                          </TableCell>
+                          <TableCell className="max-w-xs">
+                            <p className="text-sm text-muted-foreground truncate" title={inq.message}>
+                              {inq.message}
+                            </p>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
