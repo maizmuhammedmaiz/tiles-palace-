@@ -191,6 +191,22 @@ Respond with JSON only (no markdown), with these fields:
     }
   });
 
+  // Public settings (whatsapp number used by frontend)
+  app.get("/api/settings", async (req, res) => {
+    const settings = await storage.getSettings();
+    res.json(settings);
+  });
+
+  // Admin settings update
+  app.patch("/api/admin/settings", requireAdmin, async (req, res) => {
+    try {
+      const updated = await storage.updateSettings(req.body);
+      res.json(updated);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to save settings" });
+    }
+  });
+
   // Seed Data
   await storage.seedProducts();
   await storage.seedServices();

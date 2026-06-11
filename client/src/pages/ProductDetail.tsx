@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useRoute } from "wouter";
 import { useProduct } from "@/hooks/use-products";
+import { useQuery } from "@tanstack/react-query";
 import { Navigation } from "@/components/Navigation";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -13,8 +14,7 @@ import { ArrowLeft, Check, Shield, Truck, MessageCircle, CheckCircle2, Store, Us
 import { Link } from "wouter";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-
-const SELLER_WHATSAPP = "15551234567"; // Replace with real seller WhatsApp number
+import type { StoreSettings } from "@shared/schema";
 
 function formatWhatsAppNumber(phone: string): string {
   const digits = phone.replace(/\D/g, "");
@@ -35,10 +35,12 @@ function OrderSuccessView({
   product,
   summary,
   onClose,
+  sellerWhatsapp,
 }: {
   product: { name: string; price: string };
   summary: OrderSummary;
   onClose: () => void;
+  sellerWhatsapp: string;
 }) {
   const sellerMsg =
     `🔔 *New Order Received!*\n\n` +
@@ -85,7 +87,7 @@ function OrderSuccessView({
 
         <Button
           className="w-full bg-green-600 hover:bg-green-700 text-white flex gap-2 justify-start h-12"
-          onClick={() => window.open(`https://wa.me/${SELLER_WHATSAPP}?text=${encodeURIComponent(sellerMsg)}`, "_blank")}
+          onClick={() => window.open(`https://wa.me/${sellerWhatsapp}?text=${encodeURIComponent(sellerMsg)}`, "_blank")}
           data-testid="button-notify-seller"
         >
           <Store className="h-5 w-5 flex-shrink-0" />
@@ -131,6 +133,11 @@ function OrderDialog({
   const [loading, setLoading] = useState(false);
   const [orderSummary, setOrderSummary] = useState<OrderSummary | null>(null);
   const { toast } = useToast();
+
+  const { data: settings } = useQuery<StoreSettings>({
+    queryKey: ["/api/settings"],
+  });
+  const sellerWhatsapp = settings?.whatsappNumber || "";
 
   const handleClose = () => {
     onClose();
@@ -181,7 +188,7 @@ function OrderDialog({
         </DialogHeader>
 
         {orderSummary ? (
-          <OrderSuccessView product={product} summary={orderSummary} onClose={handleClose} />
+          <OrderSuccessView product={product} summary={orderSummary} onClose={handleClose} sellerWhatsapp={sellerWhatsapp} />
         ) : (
           <form onSubmit={handleOrder} className="space-y-3 pt-2">
             <div className="p-3 bg-slate-50 rounded-lg text-sm">

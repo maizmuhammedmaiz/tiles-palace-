@@ -65,3 +65,14 @@ export const services = pgTable("services", {
 export const insertServiceSchema = createInsertSchema(services).omit({ id: true });
 export type Service = typeof services.$inferSelect;
 export type InsertService = z.infer<typeof insertServiceSchema>;
+
+export const storeSettings = pgTable("store_settings", {
+  id: serial("id").primaryKey(),
+  whatsappNumber: text("whatsapp_number").notNull().default(""),
+  storeName: text("store_name").notNull().default("Tiles Palace"),
+  storePhone: text("store_phone").notNull().default(""),
+  storeEmail: text("store_email").notNull().default(""),
+  storeAddress: text("store_address").notNull().default(""),
+});
+
+export type StoreSettings = typeof storeSettings.$inferSelect;

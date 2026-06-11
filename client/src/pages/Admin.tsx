@@ -13,9 +13,9 @@ import { useToast } from "@/hooks/use-toast";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertProductSchema, type Product, type Order, type Service } from "@shared/schema";
+import { insertProductSchema, type Product, type Order, type Service, type StoreSettings } from "@shared/schema";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { Plus, ShoppingCart, Package, BarChart3, Check, LogOut, Printer, Image as ImageIcon, Lock, Trash2, Images, Video } from "lucide-react";
+import { Plus, ShoppingCart, Package, BarChart3, Check, LogOut, Printer, Image as ImageIcon, Lock, Trash2, Images, Video, Settings, MessageCircle as MessageCircleIcon, Store as StoreIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
@@ -118,6 +118,44 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
     queryKey: ["/api/services"],
   });
 
+  const { data: storeSettings } = useQuery<StoreSettings>({
+    queryKey: ["/api/settings"],
+  });
+
+  const [settingsForm, setSettingsForm] = useState({
+    whatsappNumber: "",
+    storeName: "",
+    storePhone: "",
+    storeEmail: "",
+    storeAddress: "",
+  });
+
+  const [settingsInitialized, setSettingsInitialized] = useState(false);
+
+  if (storeSettings && !settingsInitialized) {
+    setSettingsForm({
+      whatsappNumber: storeSettings.whatsappNumber || "",
+      storeName: storeSettings.storeName || "",
+      storePhone: storeSettings.storePhone || "",
+      storeEmail: storeSettings.storeEmail || "",
+      storeAddress: storeSettings.storeAddress || "",
+    });
+    setSettingsInitialized(true);
+  }
+
+  const saveSettingsMutation = useMutation({
+    mutationFn: async (data: typeof settingsForm) => {
+      await apiRequest("PATCH", "/api/admin/settings", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+      toast({ title: "Settings saved!", description: "Store settings updated successfully." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Could not save settings.", variant: "destructive" });
+    },
+  });
+
   const addPortfolioMutation = useMutation({
     mutationFn: async (data: any) => {
       await apiRequest("POST", "/api/admin/services", data);
@@ -195,7 +233,7 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-5 mb-8">
+          <TabsList className="grid w-full grid-cols-6 mb-8">
             <TabsTrigger value="inventory" className="flex gap-2">
               <Package className="h-4 w-4" /> Inventory
             </TabsTrigger>
@@ -210,6 +248,9 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
             </TabsTrigger>
             <TabsTrigger value="analytics" className="flex gap-2">
               <BarChart3 className="h-4 w-4" /> Analytics
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="flex gap-2">
+              <Settings className="h-4 w-4" /> Settings
             </TabsTrigger>
           </TabsList>
 
@@ -635,6 +676,114 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
                   )}
                 </CardContent>
               </Card>
+            </div>
+          </TabsContent>
+
+          {/* Settings Tab */}
+          <TabsContent value="settings">
+            <div className="max-w-xl space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MessageCircleIcon className="h-5 w-5 text-green-600" />
+                    WhatsApp Settings
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Set the seller's WhatsApp number. All order notifications will be sent here.
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="wa-number">Seller WhatsApp Number</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="wa-number"
+                        data-testid="input-whatsapp-number"
+                        placeholder="e.g. 919876543210 (with country code, no +)"
+                        value={settingsForm.whatsappNumber}
+                        onChange={(e) => setSettingsForm(f => ({ ...f, whatsappNumber: e.target.value }))}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Enter the full number with country code — e.g. for India: <span className="font-mono font-semibold">919876543210</span>
+                    </p>
+                    {settingsForm.whatsappNumber && (
+                      <a
+                        href={`https://wa.me/${settingsForm.whatsappNumber}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs text-green-600 hover:underline"
+                        data-testid="link-test-whatsapp"
+                      >
+                        ✅ Test this number on WhatsApp ↗
+                      </a>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <StoreIcon className="h-5 w-5 text-primary" />
+                    Store Information
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    These details appear across the website and in customer messages.
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="store-name">Store Name</Label>
+                    <Input
+                      id="store-name"
+                      data-testid="input-store-name"
+                      placeholder="Tiles Palace"
+                      value={settingsForm.storeName}
+                      onChange={(e) => setSettingsForm(f => ({ ...f, storeName: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="store-phone">Store Phone</Label>
+                    <Input
+                      id="store-phone"
+                      data-testid="input-store-phone"
+                      placeholder="+91 98765 43210"
+                      value={settingsForm.storePhone}
+                      onChange={(e) => setSettingsForm(f => ({ ...f, storePhone: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="store-email">Store Email</Label>
+                    <Input
+                      id="store-email"
+                      data-testid="input-store-email"
+                      placeholder="info@tilespalace.com"
+                      value={settingsForm.storeEmail}
+                      onChange={(e) => setSettingsForm(f => ({ ...f, storeEmail: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="store-address">Store Address</Label>
+                    <Input
+                      id="store-address"
+                      data-testid="input-store-address"
+                      placeholder="Shop address"
+                      value={settingsForm.storeAddress}
+                      onChange={(e) => setSettingsForm(f => ({ ...f, storeAddress: e.target.value }))}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Button
+                className="w-full h-12 text-base"
+                onClick={() => saveSettingsMutation.mutate(settingsForm)}
+                disabled={saveSettingsMutation.isPending}
+                data-testid="button-save-settings"
+              >
+                {saveSettingsMutation.isPending ? "Saving…" : "Save Settings"}
+              </Button>
             </div>
           </TabsContent>
         </Tabs>

@@ -1,4 +1,4 @@
-import { products, inquiries, services, orders, orderItems, type Product, type InsertProduct, type Inquiry, type InsertInquiry, type Service, type InsertService, type Order, type InsertOrder, type OrderItem, type InsertOrderItem } from "@shared/schema";
+import { products, inquiries, services, orders, orderItems, storeSettings, type Product, type InsertProduct, type Inquiry, type InsertInquiry, type Service, type InsertService, type Order, type InsertOrder, type OrderItem, type InsertOrderItem, type StoreSettings } from "@shared/schema";
 import { db } from "./db";
 import { eq, ilike, sql } from "drizzle-orm";
 
@@ -17,6 +17,8 @@ export interface IStorage {
   updateOrderStatus(id: number, status: string): Promise<Order>;
   getDailySales(): Promise<{ date: string; total: string; count: number }[]>;
   getMonthlySales(): Promise<{ month: string; total: string; count: number }[]>;
+  getSettings(): Promise<StoreSettings>;
+  updateSettings(data: Partial<Omit<StoreSettings, "id">>): Promise<StoreSettings>;
   seedProducts(): Promise<void>;
   seedServices(): Promise<void>;
 }
@@ -98,6 +100,25 @@ export class DatabaseStorage implements IStorage {
       count: sql`COUNT(*)::int`
     }).from(orders).where(eq(orders.status, 'completed')).groupBy(sql`SUBSTRING(${orders.createdAt}, 1, 7)`);
     return result as any;
+  }
+
+  async getSettings(): Promise<StoreSettings> {
+    const [row] = await db.select().from(storeSettings).limit(1);
+    if (row) return row;
+    const [newRow] = await db.insert(storeSettings).values({
+      whatsappNumber: "",
+      storeName: "Tiles Palace",
+      storePhone: "",
+      storeEmail: "",
+      storeAddress: "",
+    }).returning();
+    return newRow;
+  }
+
+  async updateSettings(data: Partial<Omit<StoreSettings, "id">>): Promise<StoreSettings> {
+    const existing = await this.getSettings();
+    const [updated] = await db.update(storeSettings).set(data).where(eq(storeSettings.id, existing.id)).returning();
+    return updated;
   }
 
   async seedServices(): Promise<void> {
