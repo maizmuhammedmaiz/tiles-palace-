@@ -196,6 +196,41 @@ Respond with JSON only (no markdown), with these fields:
     }
   });
 
+  // Purchase Invoice APIs
+  app.post("/api/admin/purchase-invoices", requireAdmin, async (req, res) => {
+    try {
+      const { invoice, items } = req.body;
+      if (!invoice || !items) return res.status(400).json({ message: "Missing invoice data" });
+      const newInvoice = await storage.createPurchaseInvoice(invoice, items);
+      res.status(201).json(newInvoice);
+    } catch (err: any) {
+      console.error("Purchase invoice error:", err?.message);
+      res.status(500).json({ message: "Failed to save purchase invoice" });
+    }
+  });
+
+  app.get("/api/admin/purchase-invoices", requireAdmin, async (req, res) => {
+    const invoices = await storage.getPurchaseInvoices();
+    res.json(invoices);
+  });
+
+  app.get("/api/admin/purchase-invoices/:id", requireAdmin, async (req, res) => {
+    const id = parseInt(req.params.id);
+    const result = await storage.getPurchaseInvoiceWithItems(id);
+    if (!result) return res.status(404).json({ message: "Invoice not found" });
+    res.json(result);
+  });
+
+  app.get("/api/admin/analytics/profit", requireAdmin, async (req, res) => {
+    try {
+      const data = await storage.getProfitAnalytics();
+      res.json(data);
+    } catch (err: any) {
+      console.error("Profit analytics error:", err?.message);
+      res.status(500).json({ message: "Failed to get profit analytics" });
+    }
+  });
+
   // Gemini AI Invoice Scanner — extract line items from a bill image
   app.post("/api/ai/scan-invoice", async (req, res) => {
     try {

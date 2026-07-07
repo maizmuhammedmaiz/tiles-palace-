@@ -13,9 +13,11 @@ import { useToast } from "@/hooks/use-toast";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertProductSchema, type Product, type Order, type Service, type StoreSettings, type Inquiry } from "@shared/schema";
+import { insertProductSchema, type Product, type Order, type Service, type StoreSettings, type Inquiry, type PurchaseInvoice, type PurchaseInvoiceItem } from "@shared/schema";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { Plus, ShoppingCart, Package, BarChart3, Check, LogOut, Printer, Image as ImageIcon, Lock, Trash2, Images, Video, Settings, MessageCircle as MessageCircleIcon, Store as StoreIcon, Truck, FileText, RotateCcw, Upload, Pencil, X, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, ShoppingCart, Package, BarChart3, Check, LogOut, Printer, Image as ImageIcon, Lock, Trash2, Images, Video, Settings, MessageCircle as MessageCircleIcon, Store as StoreIcon, Truck, FileText, RotateCcw, Upload, Pencil, X, ChevronDown, ChevronUp, Receipt, TrendingUp, IndianRupee, ArrowUpRight, Eye } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
@@ -577,6 +579,389 @@ function WholesalerTab({ products }: { products: Product[] }) {
   );
 }
 
+interface InvoiceLine {
+  id: number;
+  productId: string;
+  productName: string;
+  qty: string;
+  purchasePrice: string;
+  priceMode: "selling" | "profit";
+  sellingPrice: string;
+  profitInput: string;
+}
+
+function makeLine(): InvoiceLine {
+  return { id: Date.now() + Math.random(), productId: "", productName: "", qty: "1", purchasePrice: "", priceMode: "selling", sellingPrice: "", profitInput: "" };
+}
+
+function calcLine(line: InvoiceLine) {
+  const pp = parseFloat(line.purchasePrice) || 0;
+  const qty = parseInt(line.qty) || 0;
+  let sp = 0, profit = 0;
+  if (line.priceMode === "selling") {
+    sp = parseFloat(line.sellingPrice) || 0;
+    profit = sp - pp;
+  } else {
+    profit = parseFloat(line.profitInput) || 0;
+    sp = pp + profit;
+  }
+  return { pp, sp, profit, qty, totalCost: pp * qty, totalSelling: sp * qty, totalProfit: profit * qty };
+}
+
+function PurchasesTab({ products }: { products: Product[] }) {
+  const { toast } = useToast();
+  const [showForm, setShowForm] = useState(false);
+  const [supplierName, setSupplierName] = useState("");
+  const [invoiceNumber, setInvoiceNumber] = useState("");
+  const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().slice(0, 10));
+  const [notes, setNotes] = useState("");
+  const [lines, setLines] = useState<InvoiceLine[]>([makeLine()]);
+  const [submitting, setSubmitting] = useState(false);
+  const [viewingId, setViewingId] = useState<number | null>(null);
+
+  const { data: invoices, refetch } = useQuery<(PurchaseInvoice & { itemCount: number })[]>({
+    queryKey: ["/api/admin/purchase-invoices"],
+  });
+
+  const { data: viewData } = useQuery<{ invoice: PurchaseInvoice; items: PurchaseInvoiceItem[] }>({
+    queryKey: ["/api/admin/purchase-invoices", viewingId],
+    enabled: viewingId !== null,
+  });
+
+  const addLine = () => setLines(prev => [...prev, makeLine()]);
+  const removeLine = (id: number) => setLines(prev => prev.length > 1 ? prev.filter(l => l.id !== id) : prev);
+
+  const updateLine = (id: number, field: keyof InvoiceLine, val: string) => {
+    setLines(prev => prev.map(l => {
+      if (l.id !== id) return l;
+      const updated = { ...l, [field]: val };
+      if (field === "productId" && val !== "") {
+        const product = products.find(p => String(p.id) === val);
+        if (product) {
+          updated.productName = product.name;
+          if (!updated.sellingPrice) updated.sellingPrice = product.price;
+        }
+      }
+      return updated;
+    }));
+  };
+
+  const totals = lines.reduce((acc, l) => {
+    const c = calcLine(l);
+    return { cost: acc.cost + c.totalCost, selling: acc.selling + c.totalSelling, profit: acc.profit + c.totalProfit };
+  }, { cost: 0, selling: 0, profit: 0 });
+
+  const resetForm = () => {
+    setSupplierName(""); setInvoiceNumber(""); setInvoiceDate(new Date().toISOString().slice(0, 10));
+    setNotes(""); setLines([makeLine()]); setShowForm(false);
+  };
+
+  const handleSubmit = async () => {
+    if (!supplierName.trim()) { toast({ title: "Supplier name required", variant: "destructive" }); return; }
+    const validLines = lines.filter(l => l.productName.trim() && l.purchasePrice && l.qty);
+    if (validLines.length === 0) { toast({ title: "Add at least one item", variant: "destructive" }); return; }
+    setSubmitting(true);
+    try {
+      const items = validLines.map(l => {
+        const c = calcLine(l);
+        return {
+          productId: l.productId ? parseInt(l.productId) : null,
+          productName: l.productName,
+          qty: c.qty,
+          purchasePrice: String(c.pp),
+          sellingPrice: String(c.sp),
+          profitPerUnit: String(c.profit),
+        };
+      });
+      const res = await fetch("/api/admin/purchase-invoices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          invoice: {
+            supplierName: supplierName.trim(),
+            invoiceNumber: invoiceNumber.trim() || null,
+            invoiceDate: invoiceDate || null,
+            notes: notes.trim() || null,
+            totalCost: String(totals.cost),
+            totalSellingValue: String(totals.selling),
+            totalProfit: String(totals.profit),
+            createdAt: new Date().toISOString(),
+          },
+          items,
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json()).message);
+      toast({ title: "✅ Invoice saved", description: `${validLines.length} item${validLines.length !== 1 ? "s" : ""} recorded. Stock updated.` });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/purchase-invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/analytics/profit"] });
+      resetForm();
+    } catch (err: any) {
+      toast({ title: "Failed to save", description: err.message, variant: "destructive" });
+    }
+    setSubmitting(false);
+  };
+
+  const fmt = (n: number) => `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold flex items-center gap-2"><Receipt className="h-5 w-5 text-primary" /> Purchase Invoices</h2>
+          <p className="text-sm text-muted-foreground mt-0.5">Record supplier invoices, track stock and profit.</p>
+        </div>
+        {!showForm && (
+          <Button onClick={() => setShowForm(true)} className="gap-2" data-testid="button-new-invoice">
+            <Plus className="h-4 w-4" /> Record New Invoice
+          </Button>
+        )}
+      </div>
+
+      {/* New Invoice Form */}
+      {showForm && (
+        <Card className="border-primary/30">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2"><Receipt className="h-4 w-4 text-primary" /> New Purchase Invoice</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            {/* Header fields */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="col-span-2 space-y-1">
+                <Label className="text-xs font-medium">Supplier / Wholesaler Name *</Label>
+                <Input placeholder="e.g. Kerala Tiles Depot" value={supplierName} onChange={e => setSupplierName(e.target.value)} data-testid="input-supplier-name" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Invoice Number</Label>
+                <Input placeholder="e.g. INV-2024-001" value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Invoice Date</Label>
+                <Input type="date" value={invoiceDate} onChange={e => setInvoiceDate(e.target.value)} />
+              </div>
+              <div className="col-span-2 md:col-span-4 space-y-1">
+                <Label className="text-xs font-medium">Notes (optional)</Label>
+                <Textarea placeholder="Any notes about this purchase..." value={notes} onChange={e => setNotes(e.target.value)} rows={2} className="resize-none text-sm" />
+              </div>
+            </div>
+
+            {/* Line items */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-sm font-semibold">Products Purchased</Label>
+                <Button variant="outline" size="sm" onClick={addLine} className="gap-1 h-7 text-xs"><Plus className="h-3 w-3" /> Add Row</Button>
+              </div>
+              <div className="rounded-lg border overflow-hidden">
+                <Table>
+                  <TableHeader className="bg-slate-50">
+                    <TableRow>
+                      <TableHead className="text-xs w-52">Product</TableHead>
+                      <TableHead className="text-xs w-16">Qty</TableHead>
+                      <TableHead className="text-xs w-32">Purchase Price (₹)</TableHead>
+                      <TableHead className="text-xs w-28">
+                        <div className="flex items-center gap-1">Price Mode</div>
+                      </TableHead>
+                      <TableHead className="text-xs w-32">Selling / Profit (₹)</TableHead>
+                      <TableHead className="text-xs text-right">Profit/Unit</TableHead>
+                      <TableHead className="text-xs text-right">Total Cost</TableHead>
+                      <TableHead className="text-xs text-right">Total Profit</TableHead>
+                      <TableHead className="w-8"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {lines.map(line => {
+                      const c = calcLine(line);
+                      const profitColor = c.profit > 0 ? "text-green-600" : c.profit < 0 ? "text-red-500" : "text-muted-foreground";
+                      return (
+                        <TableRow key={line.id} className="align-top">
+                          <TableCell className="py-2">
+                            <Select value={line.productId} onValueChange={val => updateLine(line.id, "productId", val)}>
+                              <SelectTrigger className="h-8 text-xs mb-1"><SelectValue placeholder="Select product..." /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="manual">— Enter manually —</SelectItem>
+                                {products.map(p => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                            {(line.productId === "manual" || !line.productId) && (
+                              <Input className="h-7 text-xs mt-1" placeholder="Product name" value={line.productName} onChange={e => updateLine(line.id, "productName", e.target.value)} />
+                            )}
+                          </TableCell>
+                          <TableCell className="py-2">
+                            <Input type="number" min={1} value={line.qty} onChange={e => updateLine(line.id, "qty", e.target.value)} className="h-8 text-sm w-14" />
+                          </TableCell>
+                          <TableCell className="py-2">
+                            <Input type="number" min={0} placeholder="0" value={line.purchasePrice} onChange={e => updateLine(line.id, "purchasePrice", e.target.value)} className="h-8 text-sm" />
+                          </TableCell>
+                          <TableCell className="py-2">
+                            <div className="flex gap-1">
+                              <Button size="sm" variant={line.priceMode === "selling" ? "default" : "outline"} className="h-7 text-xs px-2" onClick={() => updateLine(line.id, "priceMode", "selling")}>Sell ₹</Button>
+                              <Button size="sm" variant={line.priceMode === "profit" ? "default" : "outline"} className="h-7 text-xs px-2" onClick={() => updateLine(line.id, "priceMode", "profit")}>Profit</Button>
+                            </div>
+                          </TableCell>
+                          <TableCell className="py-2">
+                            {line.priceMode === "selling" ? (
+                              <Input type="number" min={0} placeholder="Selling price" value={line.sellingPrice} onChange={e => updateLine(line.id, "sellingPrice", e.target.value)} className="h-8 text-sm" />
+                            ) : (
+                              <Input type="number" placeholder="Profit per unit" value={line.profitInput} onChange={e => updateLine(line.id, "profitInput", e.target.value)} className="h-8 text-sm" />
+                            )}
+                          </TableCell>
+                          <TableCell className={`py-2 text-right text-sm font-semibold ${profitColor}`}>
+                            {c.pp > 0 && (c.sp > 0 || c.profit !== 0) ? fmt(c.profit) : "—"}
+                          </TableCell>
+                          <TableCell className="py-2 text-right text-sm font-medium">
+                            {c.totalCost > 0 ? fmt(c.totalCost) : "—"}
+                          </TableCell>
+                          <TableCell className={`py-2 text-right text-sm font-semibold ${profitColor}`}>
+                            {c.totalProfit !== 0 ? fmt(c.totalProfit) : "—"}
+                          </TableCell>
+                          <TableCell className="py-2">
+                            <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => removeLine(line.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+
+            {/* Totals Summary */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-red-50 border border-red-100 rounded-lg p-3 text-center">
+                <p className="text-xs text-muted-foreground mb-1">Total Purchase Cost</p>
+                <p className="text-lg font-bold text-red-600">{fmt(totals.cost)}</p>
+              </div>
+              <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-center">
+                <p className="text-xs text-muted-foreground mb-1">Total Selling Value</p>
+                <p className="text-lg font-bold text-blue-600">{fmt(totals.selling)}</p>
+              </div>
+              <div className={`border rounded-lg p-3 text-center ${totals.profit >= 0 ? "bg-green-50 border-green-100" : "bg-red-50 border-red-100"}`}>
+                <p className="text-xs text-muted-foreground mb-1">Total Expected Profit</p>
+                <p className={`text-lg font-bold ${totals.profit >= 0 ? "text-green-600" : "text-red-600"}`}>{fmt(totals.profit)}</p>
+                {totals.selling > 0 && (
+                  <p className="text-xs text-muted-foreground mt-0.5">{((totals.profit / totals.selling) * 100).toFixed(1)}% margin</p>
+                )}
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3 justify-end border-t pt-4">
+              <Button variant="outline" onClick={resetForm}>Cancel</Button>
+              <Button onClick={handleSubmit} disabled={submitting} className="gap-2">
+                {submitting ? "Saving…" : <><Check className="h-4 w-4" /> Save Invoice &amp; Update Stock</>}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Invoice Detail View */}
+      {viewingId !== null && viewData && (
+        <Card className="border-blue-200">
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
+            <div>
+              <CardTitle className="text-base">{viewData.invoice.supplierName}</CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {viewData.invoice.invoiceNumber && `Invoice: ${viewData.invoice.invoiceNumber} · `}
+                {viewData.invoice.invoiceDate && `Date: ${viewData.invoice.invoiceDate} · `}
+                {viewData.items.length} item{viewData.items.length !== 1 ? "s" : ""}
+              </p>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => setViewingId(null)}><X className="h-4 w-4" /></Button>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Product</TableHead>
+                  <TableHead className="w-16">Qty</TableHead>
+                  <TableHead className="text-right">Purchase Price</TableHead>
+                  <TableHead className="text-right">Selling Price</TableHead>
+                  <TableHead className="text-right">Profit/Unit</TableHead>
+                  <TableHead className="text-right">Total Cost</TableHead>
+                  <TableHead className="text-right">Total Profit</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {viewData.items.map(item => {
+                  const pp = parseFloat(item.purchasePrice), sp = parseFloat(item.sellingPrice), profit = parseFloat(item.profitPerUnit);
+                  return (
+                    <TableRow key={item.id}>
+                      <TableCell className="font-medium text-sm">{item.productName}</TableCell>
+                      <TableCell>{item.qty}</TableCell>
+                      <TableCell className="text-right">{fmt(pp)}</TableCell>
+                      <TableCell className="text-right">{fmt(sp)}</TableCell>
+                      <TableCell className={`text-right font-semibold ${profit >= 0 ? "text-green-600" : "text-red-500"}`}>{fmt(profit)}</TableCell>
+                      <TableCell className="text-right">{fmt(pp * item.qty)}</TableCell>
+                      <TableCell className={`text-right font-semibold ${profit >= 0 ? "text-green-600" : "text-red-500"}`}>{fmt(profit * item.qty)}</TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+            <div className="grid grid-cols-3 gap-3 mt-4 pt-3 border-t">
+              <div className="text-center"><p className="text-xs text-muted-foreground">Total Cost</p><p className="font-bold text-red-600">{fmt(parseFloat(viewData.invoice.totalCost))}</p></div>
+              <div className="text-center"><p className="text-xs text-muted-foreground">Selling Value</p><p className="font-bold text-blue-600">{fmt(parseFloat(viewData.invoice.totalSellingValue))}</p></div>
+              <div className="text-center"><p className="text-xs text-muted-foreground">Expected Profit</p><p className="font-bold text-green-600">{fmt(parseFloat(viewData.invoice.totalProfit))}</p></div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Purchase History */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Purchase History</CardTitle>
+          <p className="text-sm text-muted-foreground">All saved invoices from suppliers</p>
+        </CardHeader>
+        <CardContent>
+          {!invoices || invoices.length === 0 ? (
+            <div className="text-center py-10 text-muted-foreground">
+              <Receipt className="h-10 w-10 mx-auto mb-3 opacity-25" />
+              <p className="text-sm">No invoices recorded yet.</p>
+              <p className="text-xs mt-1">Click "Record New Invoice" to get started.</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Supplier</TableHead>
+                  <TableHead>Invoice #</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead className="w-16 text-center">Items</TableHead>
+                  <TableHead className="text-right">Total Cost</TableHead>
+                  <TableHead className="text-right">Expected Profit</TableHead>
+                  <TableHead className="text-right">Recorded</TableHead>
+                  <TableHead className="w-16"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {invoices.map(inv => (
+                  <TableRow key={inv.id} data-testid={`invoice-row-${inv.id}`}>
+                    <TableCell className="font-medium">{inv.supplierName}</TableCell>
+                    <TableCell className="text-muted-foreground text-sm">{inv.invoiceNumber || "—"}</TableCell>
+                    <TableCell className="text-sm">{inv.invoiceDate || "—"}</TableCell>
+                    <TableCell className="text-center"><Badge variant="secondary">{inv.itemCount}</Badge></TableCell>
+                    <TableCell className="text-right font-semibold text-red-600">{fmt(parseFloat(inv.totalCost))}</TableCell>
+                    <TableCell className="text-right font-semibold text-green-600">{fmt(parseFloat(inv.totalProfit))}</TableCell>
+                    <TableCell className="text-right text-xs text-muted-foreground">{new Date(inv.createdAt).toLocaleDateString("en-IN")}</TableCell>
+                    <TableCell>
+                      <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs" onClick={() => setViewingId(viewingId === inv.id ? null : inv.id)}>
+                        <Eye className="h-3.5 w-3.5" /> View
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 function AdminDashboard({ onLogout }: { onLogout: () => void }) {
   const [activeTab, setActiveTab] = useState("inventory");
   const { toast } = useToast();
@@ -663,6 +1048,27 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
     queryKey: ["/api/admin/analytics/monthly-sales"],
   });
 
+  const { data: profitData } = useQuery<{
+    totalPurchaseCost: number;
+    totalSellingValue: number;
+    totalExpectedProfit: number;
+    totalRevenue: number;
+    productStats: Array<{
+      productId: number | null;
+      productName: string;
+      stockQty: number;
+      costPrice: number;
+      sellingPrice: number;
+      profitPerUnit: number;
+      totalPurchased: number;
+      totalSold: number;
+      totalStockCost: number;
+      totalExpectedProfit: number;
+    }>;
+  }>({
+    queryKey: ["/api/admin/analytics/profit"],
+  });
+
   const createProductMutation = useMutation({
     mutationFn: async (data: any) => {
       await apiRequest("POST", "/api/admin/products", data);
@@ -712,7 +1118,7 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-8 mb-8">
+          <TabsList className="grid w-full grid-cols-9 mb-8">
             <TabsTrigger value="inventory" className="flex gap-2">
               <Package className="h-4 w-4" /> Inventory
             </TabsTrigger>
@@ -735,6 +1141,9 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
             </TabsTrigger>
             <TabsTrigger value="analytics" className="flex gap-2">
               <BarChart3 className="h-4 w-4" /> Analytics
+            </TabsTrigger>
+            <TabsTrigger value="purchases" className="flex gap-2">
+              <Receipt className="h-4 w-4" /> Purchases
             </TabsTrigger>
             <TabsTrigger value="settings" className="flex gap-2">
               <Settings className="h-4 w-4" /> Settings
@@ -1225,6 +1634,115 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Profit & Stock Analytics */}
+            <div className="mt-8 space-y-6">
+              <div>
+                <h3 className="text-lg font-bold flex items-center gap-2 mb-4"><TrendingUp className="h-5 w-5 text-green-600" /> Profit Overview</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <Card className="border-l-4 border-l-red-400">
+                    <CardContent className="pt-5 pb-4">
+                      <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-1">Total Purchase Cost</p>
+                      <p className="text-2xl font-bold text-red-600">₹{(profitData?.totalPurchaseCost || 0).toLocaleString("en-IN")}</p>
+                      <p className="text-xs text-muted-foreground mt-1">All supplier invoices</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-l-4 border-l-blue-500">
+                    <CardContent className="pt-5 pb-4">
+                      <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-1">Total Selling Value</p>
+                      <p className="text-2xl font-bold text-blue-600">₹{(profitData?.totalSellingValue || 0).toLocaleString("en-IN")}</p>
+                      <p className="text-xs text-muted-foreground mt-1">At set selling prices</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-l-4 border-l-green-500">
+                    <CardContent className="pt-5 pb-4">
+                      <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-1">Expected Profit</p>
+                      <p className="text-2xl font-bold text-green-600">₹{(profitData?.totalExpectedProfit || 0).toLocaleString("en-IN")}</p>
+                      {profitData && profitData.totalSellingValue > 0 && (
+                        <p className="text-xs text-muted-foreground mt-1">{((profitData.totalExpectedProfit / profitData.totalSellingValue) * 100).toFixed(1)}% gross margin</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                  <Card className="border-l-4 border-l-primary">
+                    <CardContent className="pt-5 pb-4">
+                      <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-1">Actual Revenue</p>
+                      <p className="text-2xl font-bold text-primary">₹{(profitData?.totalRevenue || 0).toLocaleString("en-IN")}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Completed orders</p>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+
+              {/* Per-Product Profit Table */}
+              {profitData && profitData.productStats.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2"><IndianRupee className="h-4 w-4 text-primary" /> Product Profit &amp; Stock</CardTitle>
+                    <p className="text-sm text-muted-foreground">Based on purchase invoices recorded in the Purchases tab</p>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Product</TableHead>
+                          <TableHead className="text-right">Cost Price</TableHead>
+                          <TableHead className="text-right">Selling Price</TableHead>
+                          <TableHead className="text-right">Profit/Unit</TableHead>
+                          <TableHead className="text-right">Purchased</TableHead>
+                          <TableHead className="text-right">Sold</TableHead>
+                          <TableHead className="text-right">Stock Left</TableHead>
+                          <TableHead className="text-right">Total Profit</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {profitData.productStats
+                          .sort((a, b) => b.totalExpectedProfit - a.totalExpectedProfit)
+                          .map((stat, i) => {
+                            const marginPct = stat.sellingPrice > 0 ? ((stat.profitPerUnit / stat.sellingPrice) * 100).toFixed(1) : "0";
+                            const profitColor = stat.profitPerUnit > 0 ? "text-green-600" : stat.profitPerUnit < 0 ? "text-red-500" : "text-muted-foreground";
+                            return (
+                              <TableRow key={i} data-testid={`profit-row-${stat.productId ?? i}`}>
+                                <TableCell>
+                                  <p className="font-medium text-sm">{stat.productName}</p>
+                                  {i === 0 && <Badge variant="secondary" className="text-xs mt-0.5">⭐ Most Profitable</Badge>}
+                                </TableCell>
+                                <TableCell className="text-right text-sm">₹{stat.costPrice.toLocaleString("en-IN")}</TableCell>
+                                <TableCell className="text-right text-sm">₹{stat.sellingPrice.toLocaleString("en-IN")}</TableCell>
+                                <TableCell className={`text-right font-semibold text-sm ${profitColor}`}>
+                                  ₹{stat.profitPerUnit.toLocaleString("en-IN")}
+                                  <span className="text-xs text-muted-foreground ml-1">({marginPct}%)</span>
+                                </TableCell>
+                                <TableCell className="text-right text-sm">{stat.totalPurchased}</TableCell>
+                                <TableCell className="text-right text-sm">{stat.totalSold}</TableCell>
+                                <TableCell className="text-right">
+                                  <span className={`font-semibold text-sm ${stat.stockQty <= 5 ? "text-orange-500" : "text-foreground"}`}>
+                                    {stat.stockQty}
+                                    {stat.stockQty <= 5 && stat.stockQty > 0 && <span className="text-xs ml-1">⚠️ Low</span>}
+                                    {stat.stockQty === 0 && <span className="text-xs ml-1 text-red-500">Out</span>}
+                                  </span>
+                                </TableCell>
+                                <TableCell className={`text-right font-bold text-sm ${profitColor}`}>
+                                  ₹{stat.totalExpectedProfit.toLocaleString("en-IN")}
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              )}
+
+              {(!profitData || profitData.productStats.length === 0) && (
+                <Card className="border-dashed">
+                  <CardContent className="py-10 text-center text-muted-foreground">
+                    <TrendingUp className="h-10 w-10 mx-auto mb-3 opacity-25" />
+                    <p className="text-sm font-medium">No profit data yet</p>
+                    <p className="text-xs mt-1">Go to the <strong>Purchases</strong> tab and record your first supplier invoice to see profit analytics here.</p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           </TabsContent>
 
           {/* Settings Tab */}
@@ -1333,6 +1851,10 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
                 {saveSettingsMutation.isPending ? "Saving…" : "Save Settings"}
               </Button>
             </div>
+          </TabsContent>
+
+          <TabsContent value="purchases">
+            <PurchasesTab products={products || []} />
           </TabsContent>
 
           <TabsContent value="wholesaler">
