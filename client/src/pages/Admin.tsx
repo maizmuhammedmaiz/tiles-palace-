@@ -15,7 +15,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertProductSchema, type Product, type Order, type Service, type StoreSettings, type Inquiry } from "@shared/schema";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { Plus, ShoppingCart, Package, BarChart3, Check, LogOut, Printer, Image as ImageIcon, Lock, Trash2, Images, Video, Settings, MessageCircle as MessageCircleIcon, Store as StoreIcon, Truck, FileText, RotateCcw } from "lucide-react";
+import { Plus, ShoppingCart, Package, BarChart3, Check, LogOut, Printer, Image as ImageIcon, Lock, Trash2, Images, Video, Settings, MessageCircle as MessageCircleIcon, Store as StoreIcon, Truck, FileText, RotateCcw, Upload, Pencil, X, ChevronDown, ChevronUp } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
@@ -109,254 +109,349 @@ interface ManualItem {
   qty: number;
 }
 
+interface WholesalerEntry {
+  id: number;
+  name: string;
+  items: ManualItem[];
+}
+
 function WholesalerTab({ products }: { products: Product[] }) {
+  const { toast } = useToast();
+
+  const makeDefaultWholesaler = (): WholesalerEntry => ({ id: Date.now(), name: "Wholesaler 1", items: [] });
+
   const [qtys, setQtys] = useState<Record<number, number>>({});
   const [wholePrices, setWholePrices] = useState<Record<number, string>>({});
-  const [manualItems, setManualItems] = useState<ManualItem[]>([]);
+  const [showCatalog, setShowCatalog] = useState(false);
+
+  const [wholesalers, setWholesalers] = useState<WholesalerEntry[]>([makeDefaultWholesaler()]);
+  const [activeId, setActiveId] = useState<number>(wholesalers[0].id);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
+  const [scanning, setScanning] = useState(false);
+
   const [newName, setNewName] = useState("");
   const [newPrice, setNewPrice] = useState("");
   const [newQty, setNewQty] = useState("");
-  const [showManual, setShowManual] = useState(false);
 
-  const setQty = (id: number, val: number) =>
-    setQtys(prev => ({ ...prev, [id]: Math.max(0, val) }));
-  const setWPrice = (id: number, val: string) =>
-    setWholePrices(prev => ({ ...prev, [id]: val }));
+  const activeWholesaler = wholesalers.find(w => w.id === activeId) ?? wholesalers[0];
+
+  const addWholesaler = () => {
+    const count = wholesalers.length + 1;
+    const fresh: WholesalerEntry = { id: Date.now(), name: `Wholesaler ${count}`, items: [] };
+    setWholesalers(prev => [...prev, fresh]);
+    setActiveId(fresh.id);
+  };
+
+  const removeWholesaler = (id: number) => {
+    if (wholesalers.length === 1) return;
+    const remaining = wholesalers.filter(w => w.id !== id);
+    setWholesalers(remaining);
+    if (activeId === id) setActiveId(remaining[0].id);
+  };
+
+  const startEdit = (w: WholesalerEntry) => { setEditingId(w.id); setEditName(w.name); };
+  const saveEdit = () => {
+    if (!editName.trim()) { setEditingId(null); return; }
+    setWholesalers(prev => prev.map(w => w.id === editingId ? { ...w, name: editName.trim() } : w));
+    setEditingId(null);
+  };
+
+  const addItemTo = (wId: number, item: ManualItem) =>
+    setWholesalers(prev => prev.map(w => w.id === wId ? { ...w, items: [...w.items, item] } : w));
+
+  const removeItemFrom = (wId: number, iId: number) =>
+    setWholesalers(prev => prev.map(w => w.id === wId ? { ...w, items: w.items.filter(i => i.id !== iId) } : w));
+
+  const updateItem = (wId: number, iId: number, field: "name" | "price" | "qty", val: string) =>
+    setWholesalers(prev => prev.map(w => w.id === wId ? {
+      ...w,
+      items: w.items.map(i => i.id === iId ? { ...i, [field]: field === "qty" ? parseInt(val) || 0 : val } : i),
+    } : w));
 
   const addManualItem = () => {
     if (!newName.trim() || !newPrice || !newQty) return;
-    setManualItems(prev => [...prev, {
-      id: Date.now(),
-      name: newName.trim(),
-      price: newPrice,
-      qty: parseInt(newQty) || 1,
-    }]);
-    setNewName("");
-    setNewPrice("");
-    setNewQty("");
+    addItemTo(activeId, { id: Date.now(), name: newName.trim(), price: newPrice, qty: parseInt(newQty) || 1 });
+    setNewName(""); setNewPrice(""); setNewQty("");
   };
 
-  const removeManualItem = (id: number) =>
-    setManualItems(prev => prev.filter(i => i.id !== id));
-
-  const updateManualItem = (id: number, field: "name" | "price" | "qty", val: string) =>
-    setManualItems(prev => prev.map(i => i.id === id ? { ...i, [field]: field === "qty" ? parseInt(val) || 0 : val } : i));
-
-  const reset = () => { setQtys({}); setWholePrices({}); setManualItems([]); };
+  const handleInvoiceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setScanning(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async (ev) => {
+        const dataUrl = ev.target?.result as string;
+        const base64 = dataUrl.split(",")[1];
+        const mimeType = file.type || "image/jpeg";
+        try {
+          const res = await fetch("/api/ai/scan-invoice", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ imageBase64: base64, mimeType }),
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            toast({ title: "Scan failed", description: data.message, variant: "destructive" });
+          } else {
+            const extracted: ManualItem[] = (data.items || []).map((item: any, idx: number) => ({
+              id: Date.now() + idx,
+              name: item.name || "Unknown item",
+              price: String(item.price || 0),
+              qty: Number(item.qty) || 1,
+            }));
+            if (extracted.length === 0) {
+              toast({ title: "No items found", description: "Could not read items from this invoice.", variant: "destructive" });
+            } else {
+              setWholesalers(prev => prev.map(w => {
+                if (w.id !== activeId) return w;
+                const updatedName = data.supplier && w.name.startsWith("Wholesaler") ? data.supplier : w.name;
+                return { ...w, name: updatedName, items: [...w.items, ...extracted] };
+              }));
+              toast({ title: `✅ ${extracted.length} item${extracted.length !== 1 ? "s" : ""} extracted`, description: data.supplier ? `Supplier: ${data.supplier}` : "Items added to list." });
+            }
+          }
+        } catch {
+          toast({ title: "Error", description: "Failed to scan invoice.", variant: "destructive" });
+        }
+        setScanning(false);
+      };
+      reader.readAsDataURL(file);
+    } catch {
+      toast({ title: "Error", description: "Failed to read file.", variant: "destructive" });
+      setScanning(false);
+    }
+    e.target.value = "";
+  };
 
   const catalogLines = products.filter(p => (qtys[p.id] || 0) > 0);
   const catalogTotal = catalogLines.reduce((sum, p) => {
     const wp = parseFloat(wholePrices[p.id] || p.price) || 0;
     return sum + wp * (qtys[p.id] || 0);
   }, 0);
-  const manualTotal = manualItems.reduce((sum, i) => sum + (parseFloat(i.price) || 0) * i.qty, 0);
-  const grandTotal = catalogTotal + manualTotal;
-  const totalLines = catalogLines.length + manualItems.length;
+  const wholesalerTotals = wholesalers.map(w => ({
+    id: w.id, name: w.name,
+    total: w.items.reduce((sum, i) => sum + (parseFloat(i.price) || 0) * i.qty, 0),
+  }));
+  const allWholesalersTotal = wholesalerTotals.reduce((s, w) => s + w.total, 0);
+  const grandTotal = catalogTotal + allWholesalersTotal;
+  const totalLines = catalogLines.length + wholesalers.reduce((s, w) => s + w.items.length, 0);
+  const activeTotal = wholesalerTotals.find(w => w.id === activeId)?.total ?? 0;
+
+  const reset = () => {
+    setQtys({}); setWholePrices({});
+    const fresh = makeDefaultWholesaler();
+    setWholesalers([fresh]);
+    setActiveId(fresh.id);
+  };
 
   const handlePrint = () => {
     if (totalLines === 0) return;
-    const catRows = catalogLines.map(p => {
-      const wp = parseFloat(wholePrices[p.id] || p.price) || 0;
-      const qty = qtys[p.id] || 0;
-      return `${p.name} | Qty: ${qty} | Price: ₹${wp.toLocaleString("en-IN")} | Total: ₹${(wp * qty).toLocaleString("en-IN")}`;
+    let content = `TILES PALACE — WHOLESALE PURCHASE ORDER\n${"=".repeat(52)}\n\n`;
+    if (catalogLines.length > 0) {
+      content += `CATALOG PRODUCTS:\n${"-".repeat(40)}\n`;
+      catalogLines.forEach(p => {
+        const wp = parseFloat(wholePrices[p.id] || p.price) || 0;
+        const qty = qtys[p.id] || 0;
+        content += `${p.name} | Qty: ${qty} | ₹${wp.toLocaleString("en-IN")} | Total: ₹${(wp * qty).toLocaleString("en-IN")}\n`;
+      });
+      content += `Subtotal: ₹${catalogTotal.toLocaleString("en-IN")}\n\n`;
+    }
+    wholesalers.forEach(w => {
+      if (w.items.length === 0) return;
+      const wTotal = w.items.reduce((s, i) => s + (parseFloat(i.price) || 0) * i.qty, 0);
+      content += `${w.name.toUpperCase()}:\n${"-".repeat(40)}\n`;
+      w.items.forEach(i => {
+        const price = parseFloat(i.price) || 0;
+        content += `${i.name} | Qty: ${i.qty} | ₹${price.toLocaleString("en-IN")} | Total: ₹${(price * i.qty).toLocaleString("en-IN")}\n`;
+      });
+      content += `Subtotal: ₹${wTotal.toLocaleString("en-IN")}\n\n`;
     });
-    const manRows = manualItems.map(i => {
-      const price = parseFloat(i.price) || 0;
-      return `${i.name} (Manual) | Qty: ${i.qty} | Price: ₹${price.toLocaleString("en-IN")} | Total: ₹${(price * i.qty).toLocaleString("en-IN")}`;
-    });
-    const all = [...catRows, ...manRows].join("\n");
-    const content = `TILES PALACE — WHOLESALE ORDER\n${"=".repeat(48)}\n\n${all}\n\n${"=".repeat(48)}\nGRAND TOTAL: ₹${grandTotal.toLocaleString("en-IN")}\n`;
-    const w = window.open("", "_blank");
-    if (w) { w.document.write(`<pre style="font-family:monospace;font-size:14px;padding:24px;">${content}</pre>`); w.print(); }
+    content += `${"=".repeat(52)}\nGRAND TOTAL: ₹${grandTotal.toLocaleString("en-IN")}\n`;
+    const win = window.open("", "_blank");
+    if (win) { win.document.write(`<pre style="font-family:monospace;font-size:14px;padding:24px;">${content}</pre>`); win.print(); }
   };
 
   return (
     <div className="space-y-4">
-      {/* Catalog Products Table */}
+      {/* Wholesaler Tabs + Items */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
+        <CardHeader>
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <CardTitle className="flex items-center gap-2">
-              <Truck className="h-5 w-5 text-primary" /> Wholesaler Purchase List
+              <Truck className="h-5 w-5 text-primary" /> Wholesale Purchase Manager
             </CardTitle>
-            <p className="text-sm text-muted-foreground mt-1">Set quantities and wholesale prices for your purchase order.</p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={reset} className="gap-1.5">
-              <RotateCcw className="h-4 w-4" /> Reset All
-            </Button>
-            <Button size="sm" onClick={handlePrint} disabled={totalLines === 0} className="gap-1.5">
-              <Printer className="h-4 w-4" /> Print Order
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Product</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead className="w-36">Wholesale Price (₹)</TableHead>
-                <TableHead className="w-28">Qty to Order</TableHead>
-                <TableHead className="text-right">Line Total</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {products.map(p => {
-                const wp = parseFloat(wholePrices[p.id] || "") || 0;
-                const qty = qtys[p.id] || 0;
-                const lineTotal = wp * qty;
-                return (
-                  <TableRow key={p.id} data-testid={`wholesaler-row-${p.id}`} className={qty > 0 ? "bg-primary/5" : ""}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={p.imageUrl}
-                          alt={p.name}
-                          className="w-10 h-10 object-cover rounded border flex-shrink-0"
-                          onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=100"; }}
-                        />
-                        <div>
-                          <p className="font-medium text-sm leading-tight">{p.name}</p>
-                          <p className="text-xs text-muted-foreground">Retail: ₹{parseFloat(p.price).toLocaleString("en-IN")}</p>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{p.category}</TableCell>
-                    <TableCell>
-                      <Input
-                        type="number" min={0} placeholder={p.price}
-                        value={wholePrices[p.id] || ""}
-                        onChange={e => setWPrice(p.id, e.target.value)}
-                        className="h-8 text-sm"
-                        data-testid={`input-wholesale-price-${p.id}`}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number" min={0} value={qty || ""} placeholder="0"
-                        onChange={e => setQty(p.id, parseInt(e.target.value) || 0)}
-                        className="h-8 text-sm"
-                        data-testid={`input-wholesale-qty-${p.id}`}
-                      />
-                    </TableCell>
-                    <TableCell className="text-right font-semibold text-sm">
-                      {lineTotal > 0 ? `₹${lineTotal.toLocaleString("en-IN")}` : "—"}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      {/* Manual Items Section */}
-      <Card>
-        <CardHeader
-          className="flex flex-row items-center justify-between cursor-pointer select-none"
-          onClick={() => setShowManual(v => !v)}
-        >
-          <div>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Plus className="h-4 w-4 text-primary" /> Manual Items
-              {manualItems.length > 0 && (
-                <Badge variant="secondary">{manualItems.length} item{manualItems.length !== 1 ? "s" : ""}</Badge>
-              )}
-            </CardTitle>
-            <p className="text-sm text-muted-foreground mt-0.5">Add custom items not in your product catalog.</p>
-          </div>
-          <Button variant="ghost" size="sm" className="gap-1 pointer-events-none">
-            {showManual ? "Hide ▲" : "Show ▼"}
-          </Button>
-        </CardHeader>
-
-        {showManual && (
-          <CardContent className="space-y-4">
-            {/* Add new item form */}
-            <div className="flex gap-2 items-end p-3 bg-slate-50 rounded-lg border">
-              <div className="flex-1 space-y-1">
-                <Label className="text-xs">Item Name</Label>
-                <Input
-                  placeholder="e.g. Italian Marble Tile"
-                  value={newName}
-                  onChange={e => setNewName(e.target.value)}
-                  className="h-8 text-sm"
-                  data-testid="input-manual-name"
-                  onKeyDown={e => e.key === "Enter" && addManualItem()}
-                />
-              </div>
-              <div className="w-32 space-y-1">
-                <Label className="text-xs">Unit Price (₹)</Label>
-                <Input
-                  type="number" min={0} placeholder="0"
-                  value={newPrice}
-                  onChange={e => setNewPrice(e.target.value)}
-                  className="h-8 text-sm"
-                  data-testid="input-manual-price"
-                />
-              </div>
-              <div className="w-20 space-y-1">
-                <Label className="text-xs">Qty</Label>
-                <Input
-                  type="number" min={1} placeholder="1"
-                  value={newQty}
-                  onChange={e => setNewQty(e.target.value)}
-                  className="h-8 text-sm"
-                  data-testid="input-manual-qty"
-                />
-              </div>
-              <Button size="sm" onClick={addManualItem} disabled={!newName.trim() || !newPrice || !newQty} className="gap-1 h-8" data-testid="button-add-manual">
-                <Plus className="h-3.5 w-3.5" /> Add
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={reset} className="gap-1.5">
+                <RotateCcw className="h-4 w-4" /> Reset All
+              </Button>
+              <Button size="sm" onClick={handlePrint} disabled={totalLines === 0} className="gap-1.5">
+                <Printer className="h-4 w-4" /> Print Order
               </Button>
             </div>
+          </div>
 
-            {/* Manual items list */}
-            {manualItems.length > 0 && (
+          {/* Wholesaler pill tabs */}
+          <div className="flex items-center gap-2 flex-wrap mt-3">
+            {wholesalers.map(w => (
+              <div
+                key={w.id}
+                onClick={() => setActiveId(w.id)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm cursor-pointer transition-colors ${
+                  activeId === w.id
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-background hover:bg-accent border-border"
+                }`}
+              >
+                {editingId === w.id ? (
+                  <input
+                    className="bg-transparent outline-none w-28 text-sm"
+                    value={editName}
+                    autoFocus
+                    onChange={e => setEditName(e.target.value)}
+                    onBlur={saveEdit}
+                    onKeyDown={e => { if (e.key === "Enter") saveEdit(); if (e.key === "Escape") setEditingId(null); }}
+                    onClick={e => e.stopPropagation()}
+                  />
+                ) : (
+                  <>
+                    <span className="font-medium">{w.name}</span>
+                    {w.items.length > 0 && (
+                      <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${activeId === w.id ? "bg-white/25 text-white" : "bg-primary/10 text-primary"}`}>
+                        {w.items.length}
+                      </span>
+                    )}
+                    <button
+                      onClick={e => { e.stopPropagation(); startEdit(w); }}
+                      className={`ml-0.5 hover:scale-110 transition-transform ${activeId === w.id ? "text-white/80 hover:text-white" : "text-muted-foreground hover:text-foreground"}`}
+                      title="Rename wholesaler"
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </button>
+                    {wholesalers.length > 1 && (
+                      <button
+                        onClick={e => { e.stopPropagation(); removeWholesaler(w.id); }}
+                        className={`hover:scale-110 transition-transform ${activeId === w.id ? "text-white/80 hover:text-white" : "text-muted-foreground hover:text-destructive"}`}
+                        title="Remove wholesaler"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            ))}
+            <Button variant="outline" size="sm" onClick={addWholesaler} className="h-8 rounded-full gap-1 border-dashed">
+              <Plus className="h-3.5 w-3.5" /> Add Wholesaler
+            </Button>
+          </div>
+        </CardHeader>
+
+        <CardContent className="space-y-4">
+          {/* Invoice upload */}
+          <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="text-blue-500 flex-shrink-0">
+              <FileText className="h-5 w-5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-blue-900">Scan Invoice Bill</p>
+              <p className="text-xs text-blue-600 mt-0.5">
+                Upload a photo of a bill/invoice — AI will read all items automatically for <strong>{activeWholesaler.name}</strong>
+              </p>
+            </div>
+            <label className="flex-shrink-0 cursor-pointer">
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleInvoiceUpload}
+                disabled={scanning}
+                data-testid="input-invoice-upload"
+              />
+              <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-sm font-medium transition-colors ${
+                scanning
+                  ? "border-blue-200 text-blue-400 bg-white cursor-not-allowed"
+                  : "border-blue-300 text-blue-700 bg-white hover:bg-blue-50 cursor-pointer"
+              }`}>
+                {scanning ? (
+                  <><span className="inline-block animate-spin">⏳</span> Scanning…</>
+                ) : (
+                  <><Upload className="h-4 w-4" /> Upload Invoice</>
+                )}
+              </div>
+            </label>
+          </div>
+
+          {/* Manual add form */}
+          <div className="flex gap-2 items-end p-3 bg-slate-50 rounded-lg border">
+            <div className="flex-1 min-w-0 space-y-1">
+              <Label className="text-xs text-muted-foreground">Item Name</Label>
+              <Input
+                placeholder="e.g. Italian Marble Tile"
+                value={newName}
+                onChange={e => setNewName(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && addManualItem()}
+                className="h-8 text-sm"
+                data-testid="input-manual-name"
+              />
+            </div>
+            <div className="w-28 space-y-1">
+              <Label className="text-xs text-muted-foreground">Unit Price (₹)</Label>
+              <Input
+                type="number" min={0} placeholder="0"
+                value={newPrice}
+                onChange={e => setNewPrice(e.target.value)}
+                className="h-8 text-sm"
+                data-testid="input-manual-price"
+              />
+            </div>
+            <div className="w-16 space-y-1">
+              <Label className="text-xs text-muted-foreground">Qty</Label>
+              <Input
+                type="number" min={1} placeholder="1"
+                value={newQty}
+                onChange={e => setNewQty(e.target.value)}
+                className="h-8 text-sm"
+                data-testid="input-manual-qty"
+              />
+            </div>
+            <Button size="sm" onClick={addManualItem} disabled={!newName.trim() || !newPrice || !newQty} className="gap-1 h-8" data-testid="button-add-manual">
+              <Plus className="h-3.5 w-3.5" /> Add
+            </Button>
+          </div>
+
+          {/* Items table for active wholesaler */}
+          {activeWholesaler.items.length > 0 ? (
+            <>
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Item Name</TableHead>
-                    <TableHead className="w-36">Unit Price (₹)</TableHead>
-                    <TableHead className="w-24">Qty</TableHead>
+                    <TableHead className="w-32">Unit Price (₹)</TableHead>
+                    <TableHead className="w-20">Qty</TableHead>
                     <TableHead className="text-right">Line Total</TableHead>
                     <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {manualItems.map(item => {
+                  {activeWholesaler.items.map(item => {
                     const price = parseFloat(item.price) || 0;
                     const lineTotal = price * item.qty;
                     return (
-                      <TableRow key={item.id} className="bg-amber-50" data-testid={`manual-row-${item.id}`}>
+                      <TableRow key={item.id} className="bg-amber-50/60" data-testid={`wholesaler-item-${item.id}`}>
                         <TableCell>
-                          <Input
-                            value={item.name}
-                            onChange={e => updateManualItem(item.id, "name", e.target.value)}
-                            className="h-8 text-sm font-medium"
-                          />
+                          <Input value={item.name} onChange={e => updateItem(activeId, item.id, "name", e.target.value)} className="h-8 text-sm" />
                         </TableCell>
                         <TableCell>
-                          <Input
-                            type="number" min={0}
-                            value={item.price}
-                            onChange={e => updateManualItem(item.id, "price", e.target.value)}
-                            className="h-8 text-sm"
-                          />
+                          <Input type="number" min={0} value={item.price} onChange={e => updateItem(activeId, item.id, "price", e.target.value)} className="h-8 text-sm" />
                         </TableCell>
                         <TableCell>
-                          <Input
-                            type="number" min={1}
-                            value={item.qty}
-                            onChange={e => updateManualItem(item.id, "qty", e.target.value)}
-                            className="h-8 text-sm"
-                          />
+                          <Input type="number" min={0} value={item.qty} onChange={e => updateItem(activeId, item.id, "qty", e.target.value)} className="h-8 text-sm" />
                         </TableCell>
-                        <TableCell className="text-right font-semibold text-sm">
-                          ₹{lineTotal.toLocaleString("en-IN")}
-                        </TableCell>
+                        <TableCell className="text-right font-semibold text-sm">₹{lineTotal.toLocaleString("en-IN")}</TableCell>
                         <TableCell>
-                          <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => removeManualItem(item.id)}>
+                          <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => removeItemFrom(activeId, item.id)}>
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </TableCell>
@@ -365,28 +460,99 @@ function WholesalerTab({ products }: { products: Product[] }) {
                   })}
                 </TableBody>
               </Table>
-            )}
+              <div className="flex justify-end text-sm pt-1 border-t">
+                <span className="text-muted-foreground mr-2">{activeWholesaler.name} subtotal:</span>
+                <span className="font-bold text-primary">₹{activeTotal.toLocaleString("en-IN")}</span>
+              </div>
+            </>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <Truck className="h-8 w-8 mx-auto mb-2 opacity-30" />
+              <p className="text-sm">No items for <strong>{activeWholesaler.name}</strong> yet.</p>
+              <p className="text-xs mt-1">Upload an invoice bill above or add items manually.</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-            {manualItems.length === 0 && (
-              <p className="text-center text-sm text-muted-foreground py-4">No manual items added yet. Use the form above to add items.</p>
-            )}
+      {/* Catalog Products (collapsible) */}
+      <Card>
+        <CardHeader
+          className="flex flex-row items-center justify-between cursor-pointer select-none py-3"
+          onClick={() => setShowCatalog(v => !v)}
+        >
+          <div className="flex items-center gap-2">
+            <Package className="h-4 w-4 text-primary" />
+            <span className="font-semibold text-sm">Store Catalog Products</span>
+            {catalogLines.length > 0 && <Badge variant="secondary">{catalogLines.length} selected</Badge>}
+          </div>
+          <Button variant="ghost" size="sm" className="h-7 pointer-events-none gap-1">
+            {showCatalog ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            {showCatalog ? "Hide" : "Show"}
+          </Button>
+        </CardHeader>
+        {showCatalog && (
+          <CardContent className="pt-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Product</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead className="w-36">Wholesale Price (₹)</TableHead>
+                  <TableHead className="w-28">Qty to Order</TableHead>
+                  <TableHead className="text-right">Line Total</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {products.map(p => {
+                  const wp = parseFloat(wholePrices[p.id] || "") || 0;
+                  const qty = qtys[p.id] || 0;
+                  const lineTotal = wp * qty;
+                  return (
+                    <TableRow key={p.id} data-testid={`wholesaler-row-${p.id}`} className={qty > 0 ? "bg-primary/5" : ""}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <img src={p.imageUrl} alt={p.name} className="w-9 h-9 object-cover rounded border flex-shrink-0"
+                            onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=100"; }} />
+                          <div>
+                            <p className="font-medium text-sm leading-tight">{p.name}</p>
+                            <p className="text-xs text-muted-foreground">Retail: ₹{parseFloat(p.price).toLocaleString("en-IN")}</p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{p.category}</TableCell>
+                      <TableCell>
+                        <Input type="number" min={0} placeholder={p.price} value={wholePrices[p.id] || ""}
+                          onChange={e => setWholePrices(prev => ({ ...prev, [p.id]: e.target.value }))}
+                          className="h-8 text-sm" data-testid={`input-wholesale-price-${p.id}`} />
+                      </TableCell>
+                      <TableCell>
+                        <Input type="number" min={0} value={qty || ""} placeholder="0"
+                          onChange={e => setQtys(prev => ({ ...prev, [p.id]: parseInt(e.target.value) || 0 }))}
+                          className="h-8 text-sm" data-testid={`input-wholesale-qty-${p.id}`} />
+                      </TableCell>
+                      <TableCell className="text-right font-semibold text-sm">
+                        {lineTotal > 0 ? `₹${lineTotal.toLocaleString("en-IN")}` : "—"}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           </CardContent>
         )}
       </Card>
 
-      {/* Grand Total Card */}
+      {/* Grand Total */}
       <Card className={`border-2 ${grandTotal > 0 ? "border-primary bg-primary/5" : "border-border"}`}>
         <CardContent className="py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <FileText className="h-5 w-5 text-primary" />
               <div>
-                <p className="font-semibold">Purchase Order Summary</p>
+                <p className="font-semibold">Purchase Order Total</p>
                 <p className="text-sm text-muted-foreground">
-                  {catalogLines.length > 0 && `${catalogLines.length} catalog item${catalogLines.length !== 1 ? "s" : ""}`}
-                  {catalogLines.length > 0 && manualItems.length > 0 && " + "}
-                  {manualItems.length > 0 && `${manualItems.length} manual item${manualItems.length !== 1 ? "s" : ""}`}
-                  {totalLines === 0 && "No items selected"}
+                  {totalLines === 0 ? "No items yet" : `${totalLines} line item${totalLines !== 1 ? "s" : ""} across ${wholesalers.filter(w => w.items.length > 0).length + (catalogLines.length > 0 ? 1 : 0)} supplier${wholesalers.filter(w => w.items.length > 0).length + (catalogLines.length > 0 ? 1 : 0) !== 1 ? "s" : ""}`}
                 </p>
               </div>
             </div>
@@ -397,10 +563,12 @@ function WholesalerTab({ products }: { products: Product[] }) {
               </p>
             </div>
           </div>
-          {catalogLines.length > 0 && manualItems.length > 0 && (
-            <div className="flex justify-end gap-6 mt-2 pt-2 border-t text-xs text-muted-foreground">
-              <span>Catalog: ₹{catalogTotal.toLocaleString("en-IN")}</span>
-              <span>Manual: ₹{manualTotal.toLocaleString("en-IN")}</span>
+          {(wholesalerTotals.some(w => w.total > 0) || catalogTotal > 0) && (
+            <div className="flex flex-wrap justify-end gap-x-6 gap-y-1 mt-3 pt-2 border-t text-xs text-muted-foreground">
+              {catalogTotal > 0 && <span>Catalog: ₹{catalogTotal.toLocaleString("en-IN")}</span>}
+              {wholesalerTotals.filter(w => w.total > 0).map(w => (
+                <span key={w.id}>{w.name}: ₹{w.total.toLocaleString("en-IN")}</span>
+              ))}
             </div>
           )}
         </CardContent>

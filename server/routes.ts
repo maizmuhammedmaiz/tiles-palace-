@@ -196,6 +196,54 @@ Respond with JSON only (no markdown), with these fields:
     }
   });
 
+  // Gemini AI Invoice Scanner — extract line items from a bill image
+  app.post("/api/ai/scan-invoice", async (req, res) => {
+    try {
+      const { imageBase64, mimeType } = req.body;
+      if (!imageBase64) return res.status(400).json({ message: "No image provided" });
+
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) return res.status(503).json({ message: "AI scanner not configured. Please add your GEMINI_API_KEY." });
+
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+      const prompt = `You are an invoice/bill data extractor.
+Look at this invoice or bill image and extract all line items.
+
+Respond with JSON only (no markdown), in this exact format:
+{
+  "supplier": "supplier or vendor name if visible, else null",
+  "date": "invoice date if visible, else null",
+  "items": [
+    { "name": "item description", "qty": 1, "price": 0.00 }
+  ]
+}
+
+Rules:
+- Extract EVERY line item you can see
+- "price" should be the unit price (price per item, not line total)
+- If qty is not shown, default to 1
+- If price is not shown for an item, use 0
+- Convert any currency symbols to just the numeric value
+- Keep item names concise but descriptive
+- If you cannot read the invoice clearly, return { "supplier": null, "date": null, "items": [] }`;
+
+      const result = await model.generateContent([
+        { inlineData: { data: imageBase64, mimeType: mimeType || "image/jpeg" } },
+        { text: prompt }
+      ]);
+
+      const text = result.response.text().trim();
+      const jsonText = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+      const parsed = JSON.parse(jsonText);
+      res.json(parsed);
+    } catch (err: any) {
+      console.error("Invoice scan error:", err?.message);
+      res.status(500).json({ message: "Could not read invoice. Please try again." });
+    }
+  });
+
   // Public settings (whatsapp number used by frontend)
   app.get("/api/settings", async (req, res) => {
     const settings = await storage.getSettings();
