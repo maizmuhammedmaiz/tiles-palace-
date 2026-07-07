@@ -102,49 +102,90 @@ function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
   );
 }
 
+interface ManualItem {
+  id: number;
+  name: string;
+  price: string;
+  qty: number;
+}
+
 function WholesalerTab({ products }: { products: Product[] }) {
   const [qtys, setQtys] = useState<Record<number, number>>({});
   const [wholePrices, setWholePrices] = useState<Record<number, string>>({});
+  const [manualItems, setManualItems] = useState<ManualItem[]>([]);
+  const [newName, setNewName] = useState("");
+  const [newPrice, setNewPrice] = useState("");
+  const [newQty, setNewQty] = useState("");
+  const [showManual, setShowManual] = useState(false);
 
   const setQty = (id: number, val: number) =>
     setQtys(prev => ({ ...prev, [id]: Math.max(0, val) }));
   const setWPrice = (id: number, val: string) =>
     setWholePrices(prev => ({ ...prev, [id]: val }));
-  const reset = () => { setQtys({}); setWholePrices({}); };
 
-  const orderLines = products.filter(p => (qtys[p.id] || 0) > 0);
-  const grandTotal = orderLines.reduce((sum, p) => {
+  const addManualItem = () => {
+    if (!newName.trim() || !newPrice || !newQty) return;
+    setManualItems(prev => [...prev, {
+      id: Date.now(),
+      name: newName.trim(),
+      price: newPrice,
+      qty: parseInt(newQty) || 1,
+    }]);
+    setNewName("");
+    setNewPrice("");
+    setNewQty("");
+  };
+
+  const removeManualItem = (id: number) =>
+    setManualItems(prev => prev.filter(i => i.id !== id));
+
+  const updateManualItem = (id: number, field: "name" | "price" | "qty", val: string) =>
+    setManualItems(prev => prev.map(i => i.id === id ? { ...i, [field]: field === "qty" ? parseInt(val) || 0 : val } : i));
+
+  const reset = () => { setQtys({}); setWholePrices({}); setManualItems([]); };
+
+  const catalogLines = products.filter(p => (qtys[p.id] || 0) > 0);
+  const catalogTotal = catalogLines.reduce((sum, p) => {
     const wp = parseFloat(wholePrices[p.id] || p.price) || 0;
     return sum + wp * (qtys[p.id] || 0);
   }, 0);
+  const manualTotal = manualItems.reduce((sum, i) => sum + (parseFloat(i.price) || 0) * i.qty, 0);
+  const grandTotal = catalogTotal + manualTotal;
+  const totalLines = catalogLines.length + manualItems.length;
 
   const handlePrint = () => {
-    if (orderLines.length === 0) return;
-    const rows = orderLines.map(p => {
+    if (totalLines === 0) return;
+    const catRows = catalogLines.map(p => {
       const wp = parseFloat(wholePrices[p.id] || p.price) || 0;
       const qty = qtys[p.id] || 0;
       return `${p.name} | Qty: ${qty} | Price: ₹${wp.toLocaleString("en-IN")} | Total: ₹${(wp * qty).toLocaleString("en-IN")}`;
-    }).join("\n");
-    const content = `TILES PALACE — WHOLESALE ORDER\n${"=".repeat(40)}\n\n${rows}\n\n${"=".repeat(40)}\nGRAND TOTAL: ₹${grandTotal.toLocaleString("en-IN")}\n`;
+    });
+    const manRows = manualItems.map(i => {
+      const price = parseFloat(i.price) || 0;
+      return `${i.name} (Manual) | Qty: ${i.qty} | Price: ₹${price.toLocaleString("en-IN")} | Total: ₹${(price * i.qty).toLocaleString("en-IN")}`;
+    });
+    const all = [...catRows, ...manRows].join("\n");
+    const content = `TILES PALACE — WHOLESALE ORDER\n${"=".repeat(48)}\n\n${all}\n\n${"=".repeat(48)}\nGRAND TOTAL: ₹${grandTotal.toLocaleString("en-IN")}\n`;
     const w = window.open("", "_blank");
     if (w) { w.document.write(`<pre style="font-family:monospace;font-size:14px;padding:24px;">${content}</pre>`); w.print(); }
   };
 
   return (
     <div className="space-y-4">
+      {/* Catalog Products Table */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
               <Truck className="h-5 w-5 text-primary" /> Wholesaler Purchase List
             </CardTitle>
-            <p className="text-sm text-muted-foreground mt-1">Set quantities and wholesale prices to calculate your purchase order total.</p>
+            <p className="text-sm text-muted-foreground mt-1">Set quantities and wholesale prices for your purchase order.</p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={reset} className="gap-1.5">
-              <RotateCcw className="h-4 w-4" /> Reset
+              <RotateCcw className="h-4 w-4" /> Reset All
             </Button>
-            <Button size="sm" onClick={handlePrint} disabled={orderLines.length === 0} className="gap-1.5">
+            <Button size="sm" onClick={handlePrint} disabled={totalLines === 0} className="gap-1.5">
               <Printer className="h-4 w-4" /> Print Order
             </Button>
           </div>
@@ -184,9 +225,7 @@ function WholesalerTab({ products }: { products: Product[] }) {
                     <TableCell className="text-sm text-muted-foreground">{p.category}</TableCell>
                     <TableCell>
                       <Input
-                        type="number"
-                        min={0}
-                        placeholder={p.price}
+                        type="number" min={0} placeholder={p.price}
                         value={wholePrices[p.id] || ""}
                         onChange={e => setWPrice(p.id, e.target.value)}
                         className="h-8 text-sm"
@@ -195,10 +234,7 @@ function WholesalerTab({ products }: { products: Product[] }) {
                     </TableCell>
                     <TableCell>
                       <Input
-                        type="number"
-                        min={0}
-                        value={qty || ""}
-                        placeholder="0"
+                        type="number" min={0} value={qty || ""} placeholder="0"
                         onChange={e => setQty(p.id, parseInt(e.target.value) || 0)}
                         className="h-8 text-sm"
                         data-testid={`input-wholesale-qty-${p.id}`}
@@ -215,25 +251,158 @@ function WholesalerTab({ products }: { products: Product[] }) {
         </CardContent>
       </Card>
 
+      {/* Manual Items Section */}
+      <Card>
+        <CardHeader
+          className="flex flex-row items-center justify-between cursor-pointer select-none"
+          onClick={() => setShowManual(v => !v)}
+        >
+          <div>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Plus className="h-4 w-4 text-primary" /> Manual Items
+              {manualItems.length > 0 && (
+                <Badge variant="secondary">{manualItems.length} item{manualItems.length !== 1 ? "s" : ""}</Badge>
+              )}
+            </CardTitle>
+            <p className="text-sm text-muted-foreground mt-0.5">Add custom items not in your product catalog.</p>
+          </div>
+          <Button variant="ghost" size="sm" className="gap-1 pointer-events-none">
+            {showManual ? "Hide ▲" : "Show ▼"}
+          </Button>
+        </CardHeader>
+
+        {showManual && (
+          <CardContent className="space-y-4">
+            {/* Add new item form */}
+            <div className="flex gap-2 items-end p-3 bg-slate-50 rounded-lg border">
+              <div className="flex-1 space-y-1">
+                <Label className="text-xs">Item Name</Label>
+                <Input
+                  placeholder="e.g. Italian Marble Tile"
+                  value={newName}
+                  onChange={e => setNewName(e.target.value)}
+                  className="h-8 text-sm"
+                  data-testid="input-manual-name"
+                  onKeyDown={e => e.key === "Enter" && addManualItem()}
+                />
+              </div>
+              <div className="w-32 space-y-1">
+                <Label className="text-xs">Unit Price (₹)</Label>
+                <Input
+                  type="number" min={0} placeholder="0"
+                  value={newPrice}
+                  onChange={e => setNewPrice(e.target.value)}
+                  className="h-8 text-sm"
+                  data-testid="input-manual-price"
+                />
+              </div>
+              <div className="w-20 space-y-1">
+                <Label className="text-xs">Qty</Label>
+                <Input
+                  type="number" min={1} placeholder="1"
+                  value={newQty}
+                  onChange={e => setNewQty(e.target.value)}
+                  className="h-8 text-sm"
+                  data-testid="input-manual-qty"
+                />
+              </div>
+              <Button size="sm" onClick={addManualItem} disabled={!newName.trim() || !newPrice || !newQty} className="gap-1 h-8" data-testid="button-add-manual">
+                <Plus className="h-3.5 w-3.5" /> Add
+              </Button>
+            </div>
+
+            {/* Manual items list */}
+            {manualItems.length > 0 && (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Item Name</TableHead>
+                    <TableHead className="w-36">Unit Price (₹)</TableHead>
+                    <TableHead className="w-24">Qty</TableHead>
+                    <TableHead className="text-right">Line Total</TableHead>
+                    <TableHead className="w-10"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {manualItems.map(item => {
+                    const price = parseFloat(item.price) || 0;
+                    const lineTotal = price * item.qty;
+                    return (
+                      <TableRow key={item.id} className="bg-amber-50" data-testid={`manual-row-${item.id}`}>
+                        <TableCell>
+                          <Input
+                            value={item.name}
+                            onChange={e => updateManualItem(item.id, "name", e.target.value)}
+                            className="h-8 text-sm font-medium"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="number" min={0}
+                            value={item.price}
+                            onChange={e => updateManualItem(item.id, "price", e.target.value)}
+                            className="h-8 text-sm"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="number" min={1}
+                            value={item.qty}
+                            onChange={e => updateManualItem(item.id, "qty", e.target.value)}
+                            className="h-8 text-sm"
+                          />
+                        </TableCell>
+                        <TableCell className="text-right font-semibold text-sm">
+                          ₹{lineTotal.toLocaleString("en-IN")}
+                        </TableCell>
+                        <TableCell>
+                          <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => removeManualItem(item.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+
+            {manualItems.length === 0 && (
+              <p className="text-center text-sm text-muted-foreground py-4">No manual items added yet. Use the form above to add items.</p>
+            )}
+          </CardContent>
+        )}
+      </Card>
+
       {/* Grand Total Card */}
       <Card className={`border-2 ${grandTotal > 0 ? "border-primary bg-primary/5" : "border-border"}`}>
-        <CardContent className="py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <FileText className="h-5 w-5 text-primary" />
-            <div>
-              <p className="font-semibold">Purchase Order Summary</p>
-              <p className="text-sm text-muted-foreground">
-                {orderLines.length} product{orderLines.length !== 1 ? "s" : ""} selected
-                {orderLines.length > 0 && ` · ${orderLines.reduce((s, p) => s + (qtys[p.id] || 0), 0)} total units`}
+        <CardContent className="py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <FileText className="h-5 w-5 text-primary" />
+              <div>
+                <p className="font-semibold">Purchase Order Summary</p>
+                <p className="text-sm text-muted-foreground">
+                  {catalogLines.length > 0 && `${catalogLines.length} catalog item${catalogLines.length !== 1 ? "s" : ""}`}
+                  {catalogLines.length > 0 && manualItems.length > 0 && " + "}
+                  {manualItems.length > 0 && `${manualItems.length} manual item${manualItems.length !== 1 ? "s" : ""}`}
+                  {totalLines === 0 && "No items selected"}
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-sm text-muted-foreground">Grand Total</p>
+              <p className="text-2xl font-bold text-primary" data-testid="text-wholesale-grand-total">
+                ₹{grandTotal.toLocaleString("en-IN")}
               </p>
             </div>
           </div>
-          <div className="text-right">
-            <p className="text-sm text-muted-foreground">Grand Total</p>
-            <p className="text-2xl font-bold text-primary" data-testid="text-wholesale-grand-total">
-              ₹{grandTotal.toLocaleString("en-IN")}
-            </p>
-          </div>
+          {catalogLines.length > 0 && manualItems.length > 0 && (
+            <div className="flex justify-end gap-6 mt-2 pt-2 border-t text-xs text-muted-foreground">
+              <span>Catalog: ₹{catalogTotal.toLocaleString("en-IN")}</span>
+              <span>Manual: ₹{manualTotal.toLocaleString("en-IN")}</span>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
