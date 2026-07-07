@@ -15,7 +15,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertProductSchema, type Product, type Order, type Service, type StoreSettings, type Inquiry } from "@shared/schema";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { Plus, ShoppingCart, Package, BarChart3, Check, LogOut, Printer, Image as ImageIcon, Lock, Trash2, Images, Video, Settings, MessageCircle as MessageCircleIcon, Store as StoreIcon } from "lucide-react";
+import { Plus, ShoppingCart, Package, BarChart3, Check, LogOut, Printer, Image as ImageIcon, Lock, Trash2, Images, Video, Settings, MessageCircle as MessageCircleIcon, Store as StoreIcon, Truck, FileText, RotateCcw } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
@@ -96,6 +96,144 @@ function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
               {loading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function WholesalerTab({ products }: { products: Product[] }) {
+  const [qtys, setQtys] = useState<Record<number, number>>({});
+  const [wholePrices, setWholePrices] = useState<Record<number, string>>({});
+
+  const setQty = (id: number, val: number) =>
+    setQtys(prev => ({ ...prev, [id]: Math.max(0, val) }));
+  const setWPrice = (id: number, val: string) =>
+    setWholePrices(prev => ({ ...prev, [id]: val }));
+  const reset = () => { setQtys({}); setWholePrices({}); };
+
+  const orderLines = products.filter(p => (qtys[p.id] || 0) > 0);
+  const grandTotal = orderLines.reduce((sum, p) => {
+    const wp = parseFloat(wholePrices[p.id] || p.price) || 0;
+    return sum + wp * (qtys[p.id] || 0);
+  }, 0);
+
+  const handlePrint = () => {
+    if (orderLines.length === 0) return;
+    const rows = orderLines.map(p => {
+      const wp = parseFloat(wholePrices[p.id] || p.price) || 0;
+      const qty = qtys[p.id] || 0;
+      return `${p.name} | Qty: ${qty} | Price: ₹${wp.toLocaleString("en-IN")} | Total: ₹${(wp * qty).toLocaleString("en-IN")}`;
+    }).join("\n");
+    const content = `TILES PALACE — WHOLESALE ORDER\n${"=".repeat(40)}\n\n${rows}\n\n${"=".repeat(40)}\nGRAND TOTAL: ₹${grandTotal.toLocaleString("en-IN")}\n`;
+    const w = window.open("", "_blank");
+    if (w) { w.document.write(`<pre style="font-family:monospace;font-size:14px;padding:24px;">${content}</pre>`); w.print(); }
+  };
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Truck className="h-5 w-5 text-primary" /> Wholesaler Purchase List
+            </CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">Set quantities and wholesale prices to calculate your purchase order total.</p>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={reset} className="gap-1.5">
+              <RotateCcw className="h-4 w-4" /> Reset
+            </Button>
+            <Button size="sm" onClick={handlePrint} disabled={orderLines.length === 0} className="gap-1.5">
+              <Printer className="h-4 w-4" /> Print Order
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Product</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead className="w-36">Wholesale Price (₹)</TableHead>
+                <TableHead className="w-28">Qty to Order</TableHead>
+                <TableHead className="text-right">Line Total</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {products.map(p => {
+                const wp = parseFloat(wholePrices[p.id] || "") || 0;
+                const qty = qtys[p.id] || 0;
+                const lineTotal = wp * qty;
+                return (
+                  <TableRow key={p.id} data-testid={`wholesaler-row-${p.id}`} className={qty > 0 ? "bg-primary/5" : ""}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={p.imageUrl}
+                          alt={p.name}
+                          className="w-10 h-10 object-cover rounded border flex-shrink-0"
+                          onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=100"; }}
+                        />
+                        <div>
+                          <p className="font-medium text-sm leading-tight">{p.name}</p>
+                          <p className="text-xs text-muted-foreground">Retail: ₹{parseFloat(p.price).toLocaleString("en-IN")}</p>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{p.category}</TableCell>
+                    <TableCell>
+                      <Input
+                        type="number"
+                        min={0}
+                        placeholder={p.price}
+                        value={wholePrices[p.id] || ""}
+                        onChange={e => setWPrice(p.id, e.target.value)}
+                        className="h-8 text-sm"
+                        data-testid={`input-wholesale-price-${p.id}`}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={qty || ""}
+                        placeholder="0"
+                        onChange={e => setQty(p.id, parseInt(e.target.value) || 0)}
+                        className="h-8 text-sm"
+                        data-testid={`input-wholesale-qty-${p.id}`}
+                      />
+                    </TableCell>
+                    <TableCell className="text-right font-semibold text-sm">
+                      {lineTotal > 0 ? `₹${lineTotal.toLocaleString("en-IN")}` : "—"}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Grand Total Card */}
+      <Card className={`border-2 ${grandTotal > 0 ? "border-primary bg-primary/5" : "border-border"}`}>
+        <CardContent className="py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <FileText className="h-5 w-5 text-primary" />
+            <div>
+              <p className="font-semibold">Purchase Order Summary</p>
+              <p className="text-sm text-muted-foreground">
+                {orderLines.length} product{orderLines.length !== 1 ? "s" : ""} selected
+                {orderLines.length > 0 && ` · ${orderLines.reduce((s, p) => s + (qtys[p.id] || 0), 0)} total units`}
+              </p>
+            </div>
+          </div>
+          <div className="text-right">
+            <p className="text-sm text-muted-foreground">Grand Total</p>
+            <p className="text-2xl font-bold text-primary" data-testid="text-wholesale-grand-total">
+              ₹{grandTotal.toLocaleString("en-IN")}
+            </p>
+          </div>
         </CardContent>
       </Card>
     </div>
@@ -237,7 +375,7 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-7 mb-8">
+          <TabsList className="grid w-full grid-cols-8 mb-8">
             <TabsTrigger value="inventory" className="flex gap-2">
               <Package className="h-4 w-4" /> Inventory
             </TabsTrigger>
@@ -263,6 +401,9 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
             </TabsTrigger>
             <TabsTrigger value="settings" className="flex gap-2">
               <Settings className="h-4 w-4" /> Settings
+            </TabsTrigger>
+            <TabsTrigger value="wholesaler" className="flex gap-2">
+              <Truck className="h-4 w-4" /> Wholesaler
             </TabsTrigger>
           </TabsList>
 
@@ -855,6 +996,10 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
                 {saveSettingsMutation.isPending ? "Saving…" : "Save Settings"}
               </Button>
             </div>
+          </TabsContent>
+
+          <TabsContent value="wholesaler">
+            <WholesalerTab products={products || []} />
           </TabsContent>
         </Tabs>
       </main>
