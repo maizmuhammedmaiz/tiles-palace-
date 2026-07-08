@@ -15,7 +15,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertProductSchema, type Product, type Order, type Service, type StoreSettings, type Inquiry, type PurchaseInvoice, type PurchaseInvoiceItem } from "@shared/schema";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { Plus, ShoppingCart, Package, BarChart3, Check, LogOut, Printer, Image as ImageIcon, Lock, Trash2, Images, Video, Settings, MessageCircle as MessageCircleIcon, Store as StoreIcon, Truck, FileText, RotateCcw, Upload, Pencil, X, ChevronDown, ChevronUp, Receipt, TrendingUp, IndianRupee, ArrowUpRight, Eye } from "lucide-react";
+import { Plus, ShoppingCart, Package, BarChart3, Check, LogOut, Printer, Image as ImageIcon, Lock, Trash2, Images, Video, Settings, MessageCircle as MessageCircleIcon, Store as StoreIcon, Truck, FileText, RotateCcw, Upload, Pencil, X, ChevronDown, ChevronUp, Receipt, TrendingUp, IndianRupee, ArrowUpRight, Eye, PackagePlus } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -117,6 +118,16 @@ interface WholesalerEntry {
   items: ManualItem[];
 }
 
+interface PendingGoodsItem {
+  id: number;
+  name: string;
+  purchasePrice: string;
+  sellingPrice: string;
+  qty: number;
+  category: string;
+  selected: boolean;
+}
+
 function WholesalerTab({ products }: { products: Product[] }) {
   const { toast } = useToast();
 
@@ -131,6 +142,8 @@ function WholesalerTab({ products }: { products: Product[] }) {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
   const [scanning, setScanning] = useState(false);
+  const [pendingGoods, setPendingGoods] = useState<PendingGoodsItem[]>([]);
+  const [addingToInventory, setAddingToInventory] = useState(false);
 
   const [newName, setNewName] = useState("");
   const [newPrice, setNewPrice] = useState("");
@@ -211,7 +224,18 @@ function WholesalerTab({ products }: { products: Product[] }) {
                 const updatedName = data.supplier && w.name.startsWith("Wholesaler") ? data.supplier : w.name;
                 return { ...w, name: updatedName, items: [...w.items, ...extracted] };
               }));
-              toast({ title: `✅ ${extracted.length} item${extracted.length !== 1 ? "s" : ""} extracted`, description: data.supplier ? `Supplier: ${data.supplier}` : "Items added to list." });
+              // Also populate pending goods for inventory confirmation
+              const goods: PendingGoodsItem[] = (data.items || []).map((item: any, idx: number) => ({
+                id: Date.now() + idx,
+                name: item.name || "Unknown item",
+                purchasePrice: String(item.price || 0),
+                sellingPrice: String(Math.ceil((parseFloat(item.price) || 0) * 1.3)),
+                qty: Number(item.qty) || 1,
+                category: "tiles",
+                selected: true,
+              }));
+              setPendingGoods(goods);
+              toast({ title: `✅ ${extracted.length} item${extracted.length !== 1 ? "s" : ""} scanned`, description: "Review & add new goods to inventory below." });
             }
           }
         } catch {
@@ -246,6 +270,38 @@ function WholesalerTab({ products }: { products: Product[] }) {
     const fresh = makeDefaultWholesaler();
     setWholesalers([fresh]);
     setActiveId(fresh.id);
+  };
+
+  const updatePendingGood = (id: number, field: keyof PendingGoodsItem, val: string | boolean) =>
+    setPendingGoods(prev => prev.map(g => g.id === id ? { ...g, [field]: val } : g));
+
+  const addSelectedToInventory = async () => {
+    const selected = pendingGoods.filter(g => g.selected);
+    if (selected.length === 0) return;
+    setAddingToInventory(true);
+    let added = 0;
+    for (const g of selected) {
+      try {
+        await apiRequest("POST", "/api/admin/products", {
+          name: g.name,
+          description: `Added from wholesaler invoice`,
+          price: g.sellingPrice,
+          category: g.category,
+          imageUrl: "",
+          featured: false,
+          inStock: true,
+          stockQty: g.qty,
+          costPrice: g.purchasePrice,
+        });
+        added++;
+      } catch {
+        // continue with others
+      }
+    }
+    queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+    setPendingGoods([]);
+    setAddingToInventory(false);
+    toast({ title: `✅ ${added} product${added !== 1 ? "s" : ""} added to inventory`, description: "New goods are now visible in the catalog." });
   };
 
   const handlePrint = () => {
@@ -384,6 +440,113 @@ function WholesalerTab({ products }: { products: Product[] }) {
               </div>
             </label>
           </div>
+
+          {/* Pending New Goods from invoice scan */}
+          {pendingGoods.length > 0 && (
+            <div className="border-2 border-green-300 rounded-xl bg-green-50 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <PackagePlus className="h-5 w-5 text-green-700" />
+                  <div>
+                    <p className="text-sm font-bold text-green-900">New Goods Detected from Invoice</p>
+                    <p className="text-xs text-green-700">Select which items to add to your product inventory</p>
+                  </div>
+                </div>
+                <button onClick={() => setPendingGoods([])} className="text-green-500 hover:text-green-700">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                {/* Select all */}
+                <div className="flex items-center gap-2 px-2 pb-1 border-b border-green-200">
+                  <Checkbox
+                    id="select-all-goods"
+                    checked={pendingGoods.every(g => g.selected)}
+                    onCheckedChange={(v) => setPendingGoods(prev => prev.map(g => ({ ...g, selected: !!v })))}
+                  />
+                  <label htmlFor="select-all-goods" className="text-xs font-semibold text-green-800 cursor-pointer">Select All</label>
+                </div>
+
+                {pendingGoods.map((g) => (
+                  <div key={g.id} className={`grid grid-cols-[auto_1fr_auto_auto_auto] gap-2 items-center p-2 rounded-lg border transition-colors ${g.selected ? "bg-white border-green-200" : "bg-green-50/50 border-transparent opacity-60"}`}>
+                    <Checkbox
+                      checked={g.selected}
+                      onCheckedChange={(v) => updatePendingGood(g.id, "selected", !!v)}
+                      data-testid={`checkbox-pending-good-${g.id}`}
+                    />
+                    <Input
+                      value={g.name}
+                      onChange={e => updatePendingGood(g.id, "name", e.target.value)}
+                      className="h-8 text-sm"
+                      placeholder="Product name"
+                      disabled={!g.selected}
+                    />
+                    <div className="flex flex-col gap-1 w-28">
+                      <span className="text-[10px] text-muted-foreground leading-none">Cost ₹</span>
+                      <Input
+                        type="number" min={0}
+                        value={g.purchasePrice}
+                        onChange={e => updatePendingGood(g.id, "purchasePrice", e.target.value)}
+                        className="h-8 text-sm"
+                        disabled={!g.selected}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1 w-28">
+                      <span className="text-[10px] text-muted-foreground leading-none">Sell ₹</span>
+                      <Input
+                        type="number" min={0}
+                        value={g.sellingPrice}
+                        onChange={e => updatePendingGood(g.id, "sellingPrice", e.target.value)}
+                        className="h-8 text-sm"
+                        disabled={!g.selected}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1 w-28">
+                      <span className="text-[10px] text-muted-foreground leading-none">Category</span>
+                      <Select value={g.category} onValueChange={v => updatePendingGood(g.id, "category", v)} disabled={!g.selected}>
+                        <SelectTrigger className="h-8 text-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="tiles">Tiles</SelectItem>
+                          <SelectItem value="lighting">Lighting</SelectItem>
+                          <SelectItem value="kitchen">Kitchen</SelectItem>
+                          <SelectItem value="shower">Bath & Shower</SelectItem>
+                          <SelectItem value="washbasin">Wash Basins</SelectItem>
+                          <SelectItem value="heating">Heating</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex items-center justify-between pt-1 border-t border-green-200">
+                <p className="text-xs text-green-700">
+                  {pendingGoods.filter(g => g.selected).length} of {pendingGoods.length} items selected
+                </p>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setPendingGoods([])} className="h-8 border-green-300 text-green-700 hover:bg-green-100">
+                    Dismiss
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={addSelectedToInventory}
+                    disabled={addingToInventory || pendingGoods.filter(g => g.selected).length === 0}
+                    className="h-8 bg-green-600 hover:bg-green-700 text-white gap-1.5"
+                    data-testid="button-add-goods-inventory"
+                  >
+                    {addingToInventory
+                      ? <><span className="inline-block animate-spin text-xs">⏳</span> Adding…</>
+                      : <><PackagePlus className="h-3.5 w-3.5" /> Add {pendingGoods.filter(g => g.selected).length} to Inventory</>
+                    }
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Manual add form */}
           <div className="flex gap-2 items-end p-3 bg-slate-50 rounded-lg border">
