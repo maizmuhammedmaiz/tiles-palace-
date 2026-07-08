@@ -42,6 +42,10 @@ export interface IStorage {
       totalExpectedProfit: number;
     }>;
   }>;
+  importInvoiceProducts(items: Array<{
+    name: string; brand?: string; size?: string; color?: string; finish?: string;
+    qty: number; purchasePrice: number; sellingPrice: number; category: string;
+  }>, supplierName: string): Promise<{ newProducts: Product[]; updatedProducts: Product[] }>;
   seedProducts(): Promise<void>;
   seedServices(): Promise<void>;
 }
@@ -269,6 +273,48 @@ export class DatabaseStorage implements IStorage {
       totalRevenue: parseFloat(revRow?.totalRevenue ?? "0") || 0,
       productStats,
     };
+  }
+
+  async importInvoiceProducts(
+    items: Array<{ name: string; brand?: string; size?: string; color?: string; finish?: string; qty: number; purchasePrice: number; sellingPrice: number; category: string }>,
+    supplierName: string
+  ): Promise<{ newProducts: Product[]; updatedProducts: Product[] }> {
+    const allProducts = await this.getProducts();
+    const newProductsList: Product[] = [];
+    const updatedProductsList: Product[] = [];
+    const seen = new Set<string>();
+
+    for (const item of items) {
+      const nameLower = item.name.toLowerCase().trim();
+      if (seen.has(nameLower)) continue;
+      seen.add(nameLower);
+
+      const existing = allProducts.find(p => p.name.toLowerCase().trim() === nameLower);
+
+      if (existing) {
+        const updated = await this.updateProduct(existing.id, {
+          stockQty: (existing.stockQty || 0) + item.qty,
+          costPrice: String(item.purchasePrice),
+        });
+        updatedProductsList.push(updated);
+      } else {
+        const descParts = [item.brand, item.size, item.color, item.finish].filter(Boolean);
+        const description = descParts.length > 0 ? descParts.join(' · ') : `Imported from ${supplierName}`;
+        const newProduct = await this.createProduct({
+          name: item.name,
+          description,
+          price: String(item.sellingPrice || item.purchasePrice),
+          category: item.category,
+          imageUrl: '',
+          featured: false,
+          stockQty: item.qty,
+          costPrice: String(item.purchasePrice),
+        });
+        newProductsList.push(newProduct);
+      }
+    }
+
+    return { newProducts: newProductsList, updatedProducts: updatedProductsList };
   }
 
   async seedServices(): Promise<void> {

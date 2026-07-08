@@ -118,14 +118,43 @@ interface WholesalerEntry {
   items: ManualItem[];
 }
 
-interface PendingGoodsItem {
+interface ScannedItem {
   id: number;
   name: string;
-  purchasePrice: string;
-  sellingPrice: string;
+  brand: string;
+  size: string;
+  color: string;
+  finish: string;
   qty: number;
+  unit: string;
+  purchasePrice: string;
+  gst: number;
+  discount: number;
+  sellingPrice: string;
   category: string;
   selected: boolean;
+}
+
+interface ImportSummary {
+  supplier: string;
+  invoiceNumber: string;
+  newCount: number;
+  updatedCount: number;
+  totalPurchase: number;
+  totalQty: number;
+  addedAt: string;
+  items: Array<{
+    name: string;
+    brand: string;
+    size: string;
+    qty: number;
+    purchasePrice: number;
+    sellingPrice: number;
+    profit: number;
+    profitTotal: number;
+    status: 'new' | 'updated';
+    category: string;
+  }>;
 }
 
 function WholesalerTab({ products }: { products: Product[] }) {
@@ -142,8 +171,12 @@ function WholesalerTab({ products }: { products: Product[] }) {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
   const [scanning, setScanning] = useState(false);
-  const [pendingGoods, setPendingGoods] = useState<PendingGoodsItem[]>([]);
-  const [addingToInventory, setAddingToInventory] = useState(false);
+  const [scannedItems, setScannedItems] = useState<ScannedItem[]>([]);
+  const [scannedSupplier, setScannedSupplier] = useState("");
+  const [scannedInvoiceNumber, setScannedInvoiceNumber] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importSummary, setImportSummary] = useState<ImportSummary | null>(null);
+  const [showSummaryDialog, setShowSummaryDialog] = useState(false);
 
   const [newName, setNewName] = useState("");
   const [newPrice, setNewPrice] = useState("");
@@ -210,32 +243,37 @@ function WholesalerTab({ products }: { products: Product[] }) {
           if (!res.ok) {
             toast({ title: "Scan failed", description: data.message, variant: "destructive" });
           } else {
-            const extracted: ManualItem[] = (data.items || []).map((item: any, idx: number) => ({
-              id: Date.now() + idx,
-              name: item.name || "Unknown item",
-              price: String(item.price || 0),
-              qty: Number(item.qty) || 1,
-            }));
-            if (extracted.length === 0) {
-              toast({ title: "No items found", description: "Could not read items from this invoice.", variant: "destructive" });
+            const rawItems = data.items || [];
+            if (rawItems.length === 0) {
+              toast({ title: "No items found", description: "AI could not read any items. Try a clearer photo.", variant: "destructive" });
             } else {
-              setWholesalers(prev => prev.map(w => {
-                if (w.id !== activeId) return w;
-                const updatedName = data.supplier && w.name.startsWith("Wholesaler") ? data.supplier : w.name;
-                return { ...w, name: updatedName, items: [...w.items, ...extracted] };
-              }));
-              // Also populate pending goods for inventory confirmation
-              const goods: PendingGoodsItem[] = (data.items || []).map((item: any, idx: number) => ({
-                id: Date.now() + idx,
-                name: item.name || "Unknown item",
-                purchasePrice: String(item.price || 0),
-                sellingPrice: String(Math.ceil((parseFloat(item.price) || 0) * 1.3)),
-                qty: Number(item.qty) || 1,
-                category: "tiles",
-                selected: true,
-              }));
-              setPendingGoods(goods);
-              toast({ title: `✅ ${extracted.length} item${extracted.length !== 1 ? "s" : ""} scanned`, description: "Review & add new goods to inventory below." });
+              const scanned: ScannedItem[] = rawItems.map((item: any, idx: number) => {
+                const pp = parseFloat(item.purchasePrice || item.price || "0") || 0;
+                return {
+                  id: Date.now() + idx,
+                  name: item.name || "Unknown item",
+                  brand: item.brand || "",
+                  size: item.size || "",
+                  color: item.color || "",
+                  finish: item.finish || "",
+                  qty: Number(item.qty) || 1,
+                  unit: item.unit || "pcs",
+                  purchasePrice: String(pp),
+                  gst: Number(item.gst) || 18,
+                  discount: Number(item.discount) || 0,
+                  sellingPrice: String(Math.ceil(pp * 1.3)),
+                  category: "tiles",
+                  selected: true,
+                };
+              });
+              setScannedItems(scanned);
+              setScannedSupplier(data.supplier || activeWholesaler.name);
+              setScannedInvoiceNumber(data.invoiceNumber || "");
+              setImportSummary(null);
+              if (data.supplier) {
+                setWholesalers(prev => prev.map(w => w.id === activeId && w.name.startsWith("Wholesaler") ? { ...w, name: data.supplier } : w));
+              }
+              toast({ title: `✅ ${rawItems.length} item${rawItems.length !== 1 ? "s" : ""} read from invoice`, description: "Review prices below, then click Import to add to inventory." });
             }
           }
         } catch {
@@ -272,36 +310,57 @@ function WholesalerTab({ products }: { products: Product[] }) {
     setActiveId(fresh.id);
   };
 
-  const updatePendingGood = (id: number, field: keyof PendingGoodsItem, val: string | boolean) =>
-    setPendingGoods(prev => prev.map(g => g.id === id ? { ...g, [field]: val } : g));
+  const updateScannedItem = (id: number, field: keyof ScannedItem, val: string | boolean | number) =>
+    setScannedItems(prev => prev.map(g => g.id === id ? { ...g, [field]: val } : g));
 
-  const addSelectedToInventory = async () => {
-    const selected = pendingGoods.filter(g => g.selected);
+  const handleImportToInventory = async () => {
+    const selected = scannedItems.filter(g => g.selected);
     if (selected.length === 0) return;
-    setAddingToInventory(true);
-    let added = 0;
-    for (const g of selected) {
-      try {
-        await apiRequest("POST", "/api/admin/products", {
+    setImporting(true);
+    try {
+      const res = await apiRequest("POST", "/api/admin/invoice-import", {
+        items: selected.map(g => ({
           name: g.name,
-          description: `Added from wholesaler invoice`,
-          price: g.sellingPrice,
+          brand: g.brand,
+          size: g.size,
+          color: g.color,
+          finish: g.finish,
+          qty: g.qty,
+          purchasePrice: parseFloat(g.purchasePrice) || 0,
+          sellingPrice: parseFloat(g.sellingPrice) || 0,
           category: g.category,
-          imageUrl: "",
-          featured: false,
-          inStock: true,
-          stockQty: g.qty,
-          costPrice: g.purchasePrice,
-        });
-        added++;
-      } catch {
-        // continue with others
-      }
+        })),
+        supplierName: scannedSupplier,
+      }) as any;
+      const newNames = new Set((res.newProducts || []).map((p: any) => p.name.toLowerCase()));
+      const summary: ImportSummary = {
+        supplier: scannedSupplier,
+        invoiceNumber: scannedInvoiceNumber,
+        newCount: res.newCount,
+        updatedCount: res.updatedCount,
+        totalPurchase: res.totalPurchase,
+        totalQty: res.totalQty,
+        addedAt: new Date().toLocaleString("en-IN"),
+        items: selected.map(g => {
+          const pp = parseFloat(g.purchasePrice) || 0;
+          const sp = parseFloat(g.sellingPrice) || 0;
+          return {
+            name: g.name, brand: g.brand, size: g.size, qty: g.qty,
+            purchasePrice: pp, sellingPrice: sp,
+            profit: sp - pp, profitTotal: (sp - pp) * g.qty,
+            status: (newNames.has(g.name.toLowerCase()) ? 'new' : 'updated') as 'new' | 'updated',
+            category: g.category,
+          };
+        }),
+      };
+      setImportSummary(summary);
+      setScannedItems([]);
+      setShowSummaryDialog(true);
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+    } catch {
+      toast({ title: "Import failed", description: "Could not import products.", variant: "destructive" });
     }
-    queryClient.invalidateQueries({ queryKey: ["/api/products"] });
-    setPendingGoods([]);
-    setAddingToInventory(false);
-    toast({ title: `✅ ${added} product${added !== 1 ? "s" : ""} added to inventory`, description: "New goods are now visible in the catalog." });
+    setImporting(false);
   };
 
   const handlePrint = () => {
@@ -441,109 +500,248 @@ function WholesalerTab({ products }: { products: Product[] }) {
             </label>
           </div>
 
-          {/* Pending New Goods from invoice scan */}
-          {pendingGoods.length > 0 && (
-            <div className="border-2 border-green-300 rounded-xl bg-green-50 p-4 space-y-3">
-              <div className="flex items-center justify-between">
+          {/* ── Invoice Scan Review Table ── */}
+          {scannedItems.length > 0 && (
+            <div className="border-2 border-blue-300 rounded-xl bg-blue-50/60 p-4 space-y-3">
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2">
-                  <PackagePlus className="h-5 w-5 text-green-700" />
+                  <FileText className="h-5 w-5 text-blue-700" />
                   <div>
-                    <p className="text-sm font-bold text-green-900">New Goods Detected from Invoice</p>
-                    <p className="text-xs text-green-700">Select which items to add to your product inventory</p>
+                    <p className="text-sm font-bold text-blue-900">
+                      Invoice Read — {scannedItems.length} items from {scannedSupplier || "Supplier"}
+                      {scannedInvoiceNumber && <span className="font-normal text-blue-600 ml-1">#{scannedInvoiceNumber}</span>}
+                    </p>
+                    <p className="text-xs text-blue-700">Set selling prices, pick category, then Import. Existing products will get a stock update instead.</p>
                   </div>
                 </div>
-                <button onClick={() => setPendingGoods([])} className="text-green-500 hover:text-green-700">
+                <button onClick={() => setScannedItems([])} className="text-blue-400 hover:text-blue-700">
                   <X className="h-4 w-4" />
                 </button>
               </div>
 
-              <div className="space-y-2">
-                {/* Select all */}
-                <div className="flex items-center gap-2 px-2 pb-1 border-b border-green-200">
-                  <Checkbox
-                    id="select-all-goods"
-                    checked={pendingGoods.every(g => g.selected)}
-                    onCheckedChange={(v) => setPendingGoods(prev => prev.map(g => ({ ...g, selected: !!v })))}
-                  />
-                  <label htmlFor="select-all-goods" className="text-xs font-semibold text-green-800 cursor-pointer">Select All</label>
-                </div>
-
-                {pendingGoods.map((g) => (
-                  <div key={g.id} className={`grid grid-cols-[auto_1fr_auto_auto_auto] gap-2 items-center p-2 rounded-lg border transition-colors ${g.selected ? "bg-white border-green-200" : "bg-green-50/50 border-transparent opacity-60"}`}>
-                    <Checkbox
-                      checked={g.selected}
-                      onCheckedChange={(v) => updatePendingGood(g.id, "selected", !!v)}
-                      data-testid={`checkbox-pending-good-${g.id}`}
-                    />
-                    <Input
-                      value={g.name}
-                      onChange={e => updatePendingGood(g.id, "name", e.target.value)}
-                      className="h-8 text-sm"
-                      placeholder="Product name"
-                      disabled={!g.selected}
-                    />
-                    <div className="flex flex-col gap-1 w-28">
-                      <span className="text-[10px] text-muted-foreground leading-none">Cost ₹</span>
-                      <Input
-                        type="number" min={0}
-                        value={g.purchasePrice}
-                        onChange={e => updatePendingGood(g.id, "purchasePrice", e.target.value)}
-                        className="h-8 text-sm"
-                        disabled={!g.selected}
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1 w-28">
-                      <span className="text-[10px] text-muted-foreground leading-none">Sell ₹</span>
-                      <Input
-                        type="number" min={0}
-                        value={g.sellingPrice}
-                        onChange={e => updatePendingGood(g.id, "sellingPrice", e.target.value)}
-                        className="h-8 text-sm"
-                        disabled={!g.selected}
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1 w-28">
-                      <span className="text-[10px] text-muted-foreground leading-none">Category</span>
-                      <Select value={g.category} onValueChange={v => updatePendingGood(g.id, "category", v)} disabled={!g.selected}>
-                        <SelectTrigger className="h-8 text-sm">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="tiles">Tiles</SelectItem>
-                          <SelectItem value="lighting">Lighting</SelectItem>
-                          <SelectItem value="kitchen">Kitchen</SelectItem>
-                          <SelectItem value="shower">Bath & Shower</SelectItem>
-                          <SelectItem value="washbasin">Wash Basins</SelectItem>
-                          <SelectItem value="heating">Heating</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                ))}
+              {/* Select-all row */}
+              <div className="flex items-center gap-2 px-1 pb-2 border-b border-blue-200">
+                <Checkbox
+                  id="select-all-scanned"
+                  checked={scannedItems.every(g => g.selected)}
+                  onCheckedChange={(v) => setScannedItems(prev => prev.map(g => ({ ...g, selected: !!v })))}
+                />
+                <label htmlFor="select-all-scanned" className="text-xs font-semibold text-blue-800 cursor-pointer">Select All ({scannedItems.length})</label>
               </div>
 
-              <div className="flex items-center justify-between pt-1 border-t border-green-200">
-                <p className="text-xs text-green-700">
-                  {pendingGoods.filter(g => g.selected).length} of {pendingGoods.length} items selected
+              {/* Scrollable table */}
+              <div className="overflow-x-auto rounded-lg border border-blue-200 bg-white">
+                <table className="w-full text-xs">
+                  <thead className="bg-blue-50 text-blue-800">
+                    <tr>
+                      <th className="p-2 text-left w-8"></th>
+                      <th className="p-2 text-left">Product Name</th>
+                      <th className="p-2 text-left w-24">Brand</th>
+                      <th className="p-2 text-left w-20">Size</th>
+                      <th className="p-2 text-center w-14">Qty</th>
+                      <th className="p-2 text-right w-24">Cost ₹</th>
+                      <th className="p-2 text-right w-24">Sell ₹</th>
+                      <th className="p-2 text-right w-20">Profit</th>
+                      <th className="p-2 text-center w-28">Category</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {scannedItems.map((g) => {
+                      const pp = parseFloat(g.purchasePrice) || 0;
+                      const sp = parseFloat(g.sellingPrice) || 0;
+                      const profit = sp - pp;
+                      return (
+                        <tr key={g.id} className={`border-t border-blue-100 ${g.selected ? "bg-white" : "opacity-50 bg-gray-50"}`} data-testid={`scanned-item-${g.id}`}>
+                          <td className="p-2">
+                            <Checkbox checked={g.selected} onCheckedChange={(v) => updateScannedItem(g.id, "selected", !!v)} />
+                          </td>
+                          <td className="p-1">
+                            <Input value={g.name} onChange={e => updateScannedItem(g.id, "name", e.target.value)} className="h-7 text-xs min-w-[140px]" disabled={!g.selected} />
+                            {(g.color || g.finish) && <p className="text-[10px] text-muted-foreground mt-0.5">{[g.color, g.finish].filter(Boolean).join(' · ')}</p>}
+                          </td>
+                          <td className="p-1">
+                            <Input value={g.brand} onChange={e => updateScannedItem(g.id, "brand", e.target.value)} className="h-7 text-xs w-24" placeholder="Brand" disabled={!g.selected} />
+                          </td>
+                          <td className="p-1">
+                            <Input value={g.size} onChange={e => updateScannedItem(g.id, "size", e.target.value)} className="h-7 text-xs w-20" placeholder="e.g. 600×600" disabled={!g.selected} />
+                          </td>
+                          <td className="p-1">
+                            <Input type="number" min={1} value={g.qty} onChange={e => updateScannedItem(g.id, "qty", parseInt(e.target.value) || 1)} className="h-7 text-xs w-14 text-center" disabled={!g.selected} />
+                          </td>
+                          <td className="p-1">
+                            <Input type="number" min={0} value={g.purchasePrice} onChange={e => updateScannedItem(g.id, "purchasePrice", e.target.value)} className="h-7 text-xs w-24 text-right" disabled={!g.selected} />
+                          </td>
+                          <td className="p-1">
+                            <Input type="number" min={0} value={g.sellingPrice} onChange={e => updateScannedItem(g.id, "sellingPrice", e.target.value)} className="h-7 text-xs w-24 text-right font-semibold" disabled={!g.selected} />
+                          </td>
+                          <td className={`p-2 text-right font-bold ${profit > 0 ? "text-green-600" : profit < 0 ? "text-red-500" : "text-muted-foreground"}`}>
+                            ₹{profit.toLocaleString("en-IN")}
+                          </td>
+                          <td className="p-1">
+                            <Select value={g.category} onValueChange={v => updateScannedItem(g.id, "category", v)} disabled={!g.selected}>
+                              <SelectTrigger className="h-7 text-xs w-28"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="tiles">Tiles</SelectItem>
+                                <SelectItem value="lighting">Lighting</SelectItem>
+                                <SelectItem value="kitchen">Kitchen</SelectItem>
+                                <SelectItem value="shower">Bath & Shower</SelectItem>
+                                <SelectItem value="washbasin">Wash Basins</SelectItem>
+                                <SelectItem value="heating">Heating</SelectItem>
+                                <SelectItem value="other">Other</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot className="bg-blue-50/80 border-t-2 border-blue-200">
+                    <tr>
+                      <td colSpan={5} className="p-2 text-xs font-semibold text-blue-800">{scannedItems.filter(g => g.selected).length} of {scannedItems.length} items selected</td>
+                      <td className="p-2 text-right text-xs font-bold text-red-600">
+                        ₹{scannedItems.filter(g => g.selected).reduce((s, g) => s + (parseFloat(g.purchasePrice) || 0) * g.qty, 0).toLocaleString("en-IN")}
+                      </td>
+                      <td className="p-2 text-right text-xs font-bold text-blue-700">
+                        ₹{scannedItems.filter(g => g.selected).reduce((s, g) => s + (parseFloat(g.sellingPrice) || 0) * g.qty, 0).toLocaleString("en-IN")}
+                      </td>
+                      <td className="p-2 text-right text-xs font-bold text-green-600">
+                        ₹{scannedItems.filter(g => g.selected).reduce((s, g) => s + ((parseFloat(g.sellingPrice) || 0) - (parseFloat(g.purchasePrice) || 0)) * g.qty, 0).toLocaleString("en-IN")}
+                      </td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+
+              <div className="flex items-center justify-between pt-1 border-t border-blue-200 flex-wrap gap-2">
+                <p className="text-xs text-blue-700">
+                  Total Purchase: <strong>₹{scannedItems.filter(g => g.selected).reduce((s, g) => s + (parseFloat(g.purchasePrice) || 0) * g.qty, 0).toLocaleString("en-IN")}</strong>
+                  {" · "} Total Qty: <strong>{scannedItems.filter(g => g.selected).reduce((s, g) => s + g.qty, 0)}</strong>
                 </p>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setPendingGoods([])} className="h-8 border-green-300 text-green-700 hover:bg-green-100">
-                    Dismiss
-                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setScannedItems([])} className="h-8">Dismiss</Button>
                   <Button
                     size="sm"
-                    onClick={addSelectedToInventory}
-                    disabled={addingToInventory || pendingGoods.filter(g => g.selected).length === 0}
+                    onClick={handleImportToInventory}
+                    disabled={importing || scannedItems.filter(g => g.selected).length === 0}
                     className="h-8 bg-green-600 hover:bg-green-700 text-white gap-1.5"
-                    data-testid="button-add-goods-inventory"
+                    data-testid="button-import-to-inventory"
                   >
-                    {addingToInventory
-                      ? <><span className="inline-block animate-spin text-xs">⏳</span> Adding…</>
-                      : <><PackagePlus className="h-3.5 w-3.5" /> Add {pendingGoods.filter(g => g.selected).length} to Inventory</>
+                    {importing
+                      ? <><span className="inline-block animate-spin">⏳</span> Importing…</>
+                      : <><PackagePlus className="h-3.5 w-3.5" /> Import {scannedItems.filter(g => g.selected).length} to Inventory</>
                     }
                   </Button>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Import Success Summary Dialog ── */}
+          {showSummaryDialog && importSummary && (
+            <Dialog open={showSummaryDialog} onOpenChange={setShowSummaryDialog}>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2 text-green-700">
+                    <Check className="h-5 w-5" /> Invoice Imported Successfully
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
+                      <p className="text-2xl font-bold text-green-700">{importSummary.newCount}</p>
+                      <p className="text-xs text-green-600 mt-1">New Products Added</p>
+                    </div>
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
+                      <p className="text-2xl font-bold text-blue-700">{importSummary.updatedCount}</p>
+                      <p className="text-xs text-blue-600 mt-1">Products Stock Updated</p>
+                    </div>
+                    <div className="bg-slate-50 border rounded-lg p-3 text-center">
+                      <p className="text-xl font-bold text-slate-700">₹{importSummary.totalPurchase.toLocaleString("en-IN")}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Total Purchase</p>
+                    </div>
+                    <div className="bg-slate-50 border rounded-lg p-3 text-center">
+                      <p className="text-xl font-bold text-slate-700">{importSummary.totalQty}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Total Quantity</p>
+                    </div>
+                  </div>
+                  <div className="text-sm space-y-1">
+                    <p><span className="text-muted-foreground">Supplier:</span> <strong>{importSummary.supplier}</strong></p>
+                    {importSummary.invoiceNumber && <p><span className="text-muted-foreground">Invoice No:</span> <strong>#{importSummary.invoiceNumber}</strong></p>}
+                    <p><span className="text-muted-foreground">Imported:</span> <strong>{importSummary.addedAt}</strong></p>
+                  </div>
+                  <Button className="w-full" onClick={() => setShowSummaryDialog(false)}>Done</Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
+
+          {/* ── New Products From Invoice (result section) ── */}
+          {importSummary && !showSummaryDialog && (
+            <div className="border-2 border-green-300 rounded-xl bg-green-50/60 p-4 space-y-3">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <PackagePlus className="h-5 w-5 text-green-700" />
+                  <div>
+                    <p className="text-sm font-bold text-green-900">New Products Added From Invoice</p>
+                    <p className="text-xs text-green-700">
+                      {importSummary.newCount > 0 && <span className="text-green-600 font-semibold">✓ {importSummary.newCount} new</span>}
+                      {importSummary.newCount > 0 && importSummary.updatedCount > 0 && " · "}
+                      {importSummary.updatedCount > 0 && <span className="text-blue-600 font-semibold">↑ {importSummary.updatedCount} stock updated</span>}
+                      {" · "}{importSummary.supplier} · {importSummary.addedAt}
+                    </p>
+                  </div>
+                </div>
+                <button onClick={() => setImportSummary(null)} className="text-green-500 hover:text-green-700"><X className="h-4 w-4" /></button>
+              </div>
+
+              <div className="overflow-x-auto rounded-lg border border-green-200 bg-white">
+                <table className="w-full text-xs">
+                  <thead className="bg-green-50 text-green-800">
+                    <tr>
+                      <th className="p-2 text-left">Product</th>
+                      <th className="p-2 text-left">Brand</th>
+                      <th className="p-2 text-left">Size</th>
+                      <th className="p-2 text-center">Qty</th>
+                      <th className="p-2 text-right">Purchase ₹</th>
+                      <th className="p-2 text-right">Selling ₹</th>
+                      <th className="p-2 text-right">Profit/Unit</th>
+                      <th className="p-2 text-right">Total Profit</th>
+                      <th className="p-2 text-center">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {importSummary.items.map((item, i) => (
+                      <tr key={i} className={`border-t ${item.status === 'new' ? 'bg-green-50/40' : 'bg-blue-50/30'}`} data-testid={`imported-item-${i}`}>
+                        <td className="p-2 font-medium">{item.name}</td>
+                        <td className="p-2 text-muted-foreground">{item.brand || "—"}</td>
+                        <td className="p-2 text-muted-foreground">{item.size || "—"}</td>
+                        <td className="p-2 text-center">{item.qty}</td>
+                        <td className="p-2 text-right text-red-600">₹{item.purchasePrice.toLocaleString("en-IN")}</td>
+                        <td className="p-2 text-right text-blue-600">₹{item.sellingPrice.toLocaleString("en-IN")}</td>
+                        <td className={`p-2 text-right font-semibold ${item.profit >= 0 ? "text-green-600" : "text-red-500"}`}>₹{item.profit.toLocaleString("en-IN")}</td>
+                        <td className={`p-2 text-right font-bold ${item.profitTotal >= 0 ? "text-green-700" : "text-red-600"}`}>₹{item.profitTotal.toLocaleString("en-IN")}</td>
+                        <td className="p-2 text-center">
+                          {item.status === 'new'
+                            ? <Badge className="bg-green-100 text-green-800 border-green-300 text-[10px] font-bold">NEW</Badge>
+                            : <Badge className="bg-blue-100 text-blue-800 border-blue-300 text-[10px]">Stock Updated</Badge>
+                          }
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="bg-green-100/60 border-t-2 border-green-200 font-semibold">
+                    <tr>
+                      <td colSpan={3} className="p-2 text-xs">Totals</td>
+                      <td className="p-2 text-center text-xs">{importSummary.totalQty}</td>
+                      <td className="p-2 text-right text-xs text-red-600">₹{importSummary.totalPurchase.toLocaleString("en-IN")}</td>
+                      <td className="p-2 text-right text-xs text-blue-600">₹{importSummary.items.reduce((s, i) => s + i.sellingPrice * i.qty, 0).toLocaleString("en-IN")}</td>
+                      <td></td>
+                      <td className="p-2 text-right text-xs text-green-700">₹{importSummary.items.reduce((s, i) => s + i.profitTotal, 0).toLocaleString("en-IN")}</td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
               </div>
             </div>
           )}

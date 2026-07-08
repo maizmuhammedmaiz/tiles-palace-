@@ -243,26 +243,41 @@ Respond with JSON only (no markdown), with these fields:
       const genAI = new GoogleGenerativeAI(apiKey);
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-      const prompt = `You are an invoice/bill data extractor.
-Look at this invoice or bill image and extract all line items.
+      const prompt = `You are an expert invoice/bill data extractor for a tiles and home fittings wholesale store.
+Look at this invoice or bill image and extract ALL line items with as much detail as possible.
 
 Respond with JSON only (no markdown), in this exact format:
 {
-  "supplier": "supplier or vendor name if visible, else null",
-  "date": "invoice date if visible, else null",
+  "supplier": "supplier or vendor company name if visible, else null",
+  "invoiceNumber": "invoice or bill number if visible, else null",
+  "date": "invoice date if visible (DD/MM/YYYY format), else null",
   "items": [
-    { "name": "item description", "qty": 1, "price": 0.00 }
+    {
+      "name": "full product name",
+      "brand": "brand name if visible, else null",
+      "size": "dimensions like 600x600 or 300x600 if visible, else null",
+      "color": "color description if visible, else null",
+      "finish": "finish type like matte/glossy/satin if visible, else null",
+      "qty": 1,
+      "unit": "unit like pcs/sqft/box/carton, else pcs",
+      "purchasePrice": 0.00,
+      "gst": 18,
+      "discount": 0
+    }
   ]
 }
 
 Rules:
-- Extract EVERY line item you can see
-- "price" should be the unit price (price per item, not line total)
-- If qty is not shown, default to 1
-- If price is not shown for an item, use 0
-- Convert any currency symbols to just the numeric value
-- Keep item names concise but descriptive
-- If you cannot read the invoice clearly, return { "supplier": null, "date": null, "items": [] }`;
+- Extract EVERY line item you can see on the invoice
+- "purchasePrice" = unit price per item (not line total). If labeled as rate/price/unit price, use that
+- "qty" = quantity ordered. If not visible, default to 1
+- "gst" = GST percentage (e.g. 18 for 18%). If not visible, use 18
+- "discount" = discount percentage if shown, else 0
+- Convert any currency symbols/commas to plain numeric value
+- "brand" — look for known tile brands: Kajaria, Somany, Asian Granito, CERA, Johnson, Nitco, Orient, Qutone etc.
+- "size" — look for dimensions like 600x600, 300x600, 800x800, 12x12 etc.
+- Keep product names concise but descriptive (include brand + type + size if visible)
+- If you cannot read the invoice, return { "supplier": null, "invoiceNumber": null, "date": null, "items": [] }`;
 
       const result = await model.generateContent([
         { inlineData: { data: imageBase64, mimeType: mimeType || "image/jpeg" } },
@@ -276,6 +291,28 @@ Rules:
     } catch (err: any) {
       console.error("Invoice scan error:", err?.message);
       res.status(500).json({ message: "Could not read invoice. Please try again." });
+    }
+  });
+
+  // Invoice bulk import — create/update products from scanned invoice
+  app.post("/api/admin/invoice-import", requireAdmin, async (req, res) => {
+    try {
+      const { items, supplierName } = req.body;
+      if (!items?.length) return res.status(400).json({ message: "No items provided" });
+      const result = await storage.importInvoiceProducts(items, supplierName || "Unknown Supplier");
+      const totalPurchase = items.reduce((s: number, i: any) => s + (Number(i.purchasePrice) * Number(i.qty)), 0);
+      const totalQty = items.reduce((s: number, i: any) => s + Number(i.qty), 0);
+      res.json({
+        newCount: result.newProducts.length,
+        updatedCount: result.updatedProducts.length,
+        newProducts: result.newProducts,
+        updatedProducts: result.updatedProducts,
+        totalPurchase,
+        totalQty,
+      });
+    } catch (err: any) {
+      console.error("Invoice import error:", err?.message);
+      res.status(500).json({ message: "Failed to import invoice products" });
     }
   });
 

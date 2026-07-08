@@ -1,0 +1,187 @@
+I want to improve the Wholesaler Purchase Manager in my Tiles Shop Management System.
+
+Invoice Upload Feature
+
+Currently, the Upload Invoice button is not working properly.
+
+I want the system to work like this:
+
+1. Read Invoice Automatically
+When I upload a wholesaler invoice (PDF or Image), AI should automatically extract:
+Item Name
+Brand
+Size
+Color
+Finish
+Quantity
+Unit
+Purchase Price
+GST
+Discount
+Total Amount
+Ignore duplicate items.
+If the same item already exists, increase its stock instead of creating another duplicate.
+2. Add New Products Automatically
+
+Every new item found in the invoice should automatically be added to the Store Catalog.
+
+Each product should contain:
+
+Product Name
+Category
+Brand
+Size
+Color
+Finish
+Purchase Price
+Selling Price (editable)
+Profit
+Current Stock
+Wholesaler Name
+Invoice Number
+Purchase Date
+3. Separate Newly Added Products
+
+After uploading the invoice, I want a separate section like:
+
+New Products Added From Invoice
+
+✓ Kajaria Marble White 600x600
+✓ Somany Wall Tile Blue 300x600
+✓ Asian Granito 800x800
+✓ CERA Wash Basin Classic
+
+This section should clearly show only the newly added products.
+
+Do NOT mix them with old products.
+
+This helps the retailer quickly identify newly arrived stock.
+
+4. Highlight New Products
+
+Show every newly added product with:
+
+Green "NEW" badge
+Light green background
+Date & Time Added
+Wholesaler Name
+
+Example:
+
+NEW
+
+Kajaria Marble White
+600x600
+
+Purchased From:
+Wholesaler 2
+
+Added:
+08 July 2026
+5. Create Separate Table
+
+After upload, create a table like:
+
+Product	Brand	Size	Qty	Purchase Price	Selling Price	Profit	Status
+Kajaria Marble White	Kajaria	600x600	50	₹420	₹520	₹100	NEW
+Somany Wall Tile	Somany	300x600	80	₹290	₹360	₹70	NEW
+
+The Status column should display a green NEW badge.
+
+6. Selling Price
+
+After importing the invoice:
+
+Purchase Price is filled automatically.
+Selling Price remains editable.
+Profit is calculated automatically.
+
+Formula:
+
+Profit = Selling Price - Purchase Price
+
+Total Profit = Profit × Quantity
+
+Update profit instantly whenever Selling Price changes.
+
+7. Existing Products
+
+If the invoice contains an existing product:
+
+Do NOT create another product.
+Increase stock quantity.
+Update average purchase price if needed.
+Show status:
+Stock Updated
+
+instead of NEW.
+
+8. Upload Success Summary
+
+After upload, show a popup:
+
+Invoice Imported Successfully
+
+✓ 42 Products Read
+✓ 38 Existing Products Updated
+✓ 4 New Products Added
+
+Total Purchase:
+₹1,45,600
+
+Total Quantity:
+842
+
+Supplier:
+Wholesaler 2
+9. Upload History
+
+Maintain an Invoice History page showing:
+
+Invoice Number
+Wholesaler
+Upload Date
+Number of Products
+Total Purchase
+Download Invoice
+View Imported Products
+10. Error Handling
+
+If AI cannot read a product:
+
+Show:
+
+Unable to read 2 products.
+
+Please review manually.
+
+Allow editing before saving.
+
+11. Admin Dashboard
+
+Automatically update:
+
+Current Stock
+Purchase Value
+Inventory Value
+Total Profit
+New Products Count
+Last Uploaded Invoice
+Supplier-wise Purchase Report
+12. User Interface
+
+Use a modern dashboard with:
+
+Green "NEW" badges
+Stock Updated badges
+Product cards
+Search
+Filters
+Sort by:
+Newly Added
+Wholesaler
+Brand
+Date
+Category
+
+The upload process should be fully automatic, and after every invoice upload, the retailer should immediately see all newly added products in a separate "New Products" section, making it easy to identify fresh stock without searching through the entire catalog.
