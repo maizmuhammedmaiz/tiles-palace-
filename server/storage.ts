@@ -53,7 +53,9 @@ export interface IStorage {
 export class DatabaseStorage implements IStorage {
   async getProducts(category?: string): Promise<Product[]> {
     if (category) {
-      return await db.select().from(products).where(ilike(products.category, category));
+      // Clean category slug and match dynamically with ilike pattern
+      const pattern = `%${category.replace(/-/g, "%")}%`;
+      return await db.select().from(products).where(ilike(products.category, pattern));
     }
     return await db.select().from(products);
   }

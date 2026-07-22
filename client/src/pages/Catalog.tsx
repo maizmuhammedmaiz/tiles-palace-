@@ -17,13 +17,16 @@ const categories = [
   { id: "kitchen", label: "Kitchen" },
   { id: "shower", label: "Bath & Shower" },
   { id: "washbasin", label: "Wash Basins" },
-  { id: "heating", label: "Heating" },
+  { id: "water-heaters", label: "Water Heaters" },
 ];
 
 export default function Catalog() {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [location, setLocation] = useLocation();
-  const searchParams = new URLSearchParams(window.location.search);
+
+  // Parse location search string reactively
+  const searchString = typeof window !== "undefined" ? window.location.search : "";
+  const searchParams = new URLSearchParams(searchString);
   const activeCategory = searchParams.get("category") || "all";
   const searchQuery = searchParams.get("search") || "";
 
