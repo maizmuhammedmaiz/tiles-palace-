@@ -1,5 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
-import { api, type InsertInquiry } from "@shared/routes";
+import { api } from "@shared/routes";
+import { type InsertInquiry } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 
 // POST /api/inquiries

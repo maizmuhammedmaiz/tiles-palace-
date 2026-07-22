@@ -5,6 +5,8 @@ import { Service } from "@shared/schema";
 import { api } from "@shared/routes";
 import { motion } from "framer-motion";
 import ReactPlayer from "react-player";
+
+const Player = ReactPlayer as any;
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export function Portfolio() {
@@ -42,7 +44,7 @@ export function Portfolio() {
                   <Card className="overflow-hidden hover-elevate h-full">
                     <div className="aspect-video bg-black relative">
                       {service.type === "video" && service.videoUrl ? (
-                        <ReactPlayer
+                        <Player
                           url={service.videoUrl}
                           width="100%"
                           height="100%"
