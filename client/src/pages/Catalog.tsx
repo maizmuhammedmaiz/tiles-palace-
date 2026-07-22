@@ -22,13 +22,13 @@ const categories = [
 
 export default function Catalog() {
   const [scannerOpen, setScannerOpen] = useState(false);
-  const [location, setLocation] = useLocation();
+  const [, setLocation] = useLocation();
 
-  // Parse location search string reactively
-  const searchString = typeof window !== "undefined" ? window.location.search : "";
-  const searchParams = new URLSearchParams(searchString);
-  const activeCategory = searchParams.get("category") || "all";
-  const searchQuery = searchParams.get("search") || "";
+  // Get initial values from URL
+  const initialCategory = new URLSearchParams(window.location.search).get("category") || "all";
+  const searchQuery = new URLSearchParams(window.location.search).get("search") || "";
+
+  const [activeCategory, setActiveCategory] = useState(initialCategory);
 
   // Pass undefined if 'all' is selected to fetch everything
   const { data: allProducts, isLoading } = useProducts(
@@ -41,10 +41,11 @@ export default function Catalog() {
   );
 
   const handleCategoryChange = (catId: string) => {
+    setActiveCategory(catId);
     if (catId === "all") {
-      setLocation("/catalog");
+      setLocation("/catalog", { replace: true });
     } else {
-      setLocation(`/catalog?category=${catId}`);
+      setLocation(`/catalog?category=${catId}`, { replace: true });
     }
   };
 
