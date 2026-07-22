@@ -79,13 +79,13 @@ export default function Catalog() {
           <div className="sticky top-24 space-y-8">
             <div>
               <h3 className="font-display font-bold text-lg mb-4">Categories</h3>
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-row lg:flex-col overflow-x-auto pb-2 lg:pb-0 gap-2 scrollbar-none touch-pan-x">
                 {categories.map((cat) => (
                   <Button
                     key={cat.id}
                     variant={activeCategory === cat.id ? "default" : "ghost"}
                     className={cn(
-                      "justify-start font-medium",
+                      "justify-start font-medium whitespace-nowrap shrink-0 touch-manipulation cursor-pointer",
                       activeCategory === cat.id ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
                     )}
                     onClick={() => handleCategoryChange(cat.id)}
