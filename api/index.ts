@@ -1,6 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
-import MemoryStore from "memorystore";
 import { registerRoutes } from "../server/routes";
 import { createServer } from "http";
 
@@ -19,8 +18,8 @@ declare module "express-session" {
   }
 }
 
-// Use MemoryStore for sessions on Vercel (serverless)
-const MemStore = MemoryStore(session);
+// Use built-in MemoryStore for sessions on Vercel (serverless)
+const MemStore = session.MemoryStore;
 
 app.use(
   session({
