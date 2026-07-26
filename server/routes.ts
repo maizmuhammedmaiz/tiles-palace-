@@ -8,17 +8,23 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
 
+function checkAdminAuth(req: Request): boolean {
+  if (req.session?.adminLoggedIn) return true;
+  const cookieHeader = req.headers.cookie || "";
+  return cookieHeader.includes("admin_auth=1");
+}
+
 function requireAdmin(req: Request, res: Response, next: NextFunction) {
-  if (req.session?.adminLoggedIn) {
+  if (checkAdminAuth(req)) {
     return next();
   }
   res.status(401).json({ message: "Unauthorized" });
 }
 
-export async function registerRoutes(
+export function registerRoutes(
   httpServer: Server,
   app: Express
-): Promise<Server> {
+): Server {
   // Products API
   app.get(api.products.list.path, async (req, res) => {
     const category = req.query.category as string | undefined;
@@ -60,8 +66,19 @@ export async function registerRoutes(
   // Admin Auth
   app.post("/api/admin/login", (req, res) => {
     const { username, password } = req.body;
-    if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-      req.session.adminLoggedIn = true;
+    const inputUser = String(username || "").trim().toLowerCase();
+    const inputPass = String(password || "").trim();
+    const targetUser = ADMIN_USERNAME.trim().toLowerCase();
+    const targetPass = ADMIN_PASSWORD.trim();
+
+    if (inputUser === targetUser && inputPass === targetPass) {
+      if (req.session) {
+        req.session.adminLoggedIn = true;
+      }
+      res.setHeader(
+        "Set-Cookie",
+        "admin_auth=1; Path=/; Max-Age=86400; HttpOnly; SameSite=Lax"
+      );
       res.json({ success: true });
     } else {
       res.status(401).json({ message: "Invalid username or password" });
@@ -69,13 +86,18 @@ export async function registerRoutes(
   });
 
   app.post("/api/admin/logout", (req, res) => {
-    req.session.destroy(() => {
-      res.json({ success: true });
-    });
+    if (req.session) {
+      req.session.destroy(() => {});
+    }
+    res.setHeader(
+      "Set-Cookie",
+      "admin_auth=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax"
+    );
+    res.json({ success: true });
   });
 
   app.get("/api/admin/me", (req, res) => {
-    if (req.session?.adminLoggedIn) {
+    if (checkAdminAuth(req)) {
       res.json({ loggedIn: true });
     } else {
       res.json({ loggedIn: false });
@@ -332,9 +354,13 @@ Rules:
     }
   });
 
-  // Seed Data
-  await storage.seedProducts();
-  await storage.seedServices();
+  // Seed Data asynchronously in background (does not block serverless boot)
+  storage.seedProducts().catch((err: any) =>
+    console.warn("Seeding products skipped:", err?.message || err)
+  );
+  storage.seedServices().catch((err: any) =>
+    console.warn("Seeding services skipped:", err?.message || err)
+  );
 
   return httpServer;
 }

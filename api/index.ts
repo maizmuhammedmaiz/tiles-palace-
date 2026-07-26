@@ -19,7 +19,7 @@ declare module "express-session" {
   }
 }
 
-// Use MemoryStore for sessions on Vercel (serverless — no persistent PG session store)
+// Use MemoryStore for sessions on Vercel (serverless)
 const MemStore = MemoryStore(session);
 
 app.use(
@@ -41,24 +41,19 @@ app.use(
     verify: (req, _res, buf) => {
       req.rawBody = buf;
     },
-  }),
+  })
 );
 
 app.use(express.urlencoded({ extended: false }));
 
-// Await route registration before handling any requests
-const readyPromise = (async () => {
-  await registerRoutes(httpServer, app);
+// Synchronously register all Express routes
+registerRoutes(httpServer, app);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-    res.status(status).json({ message });
-  });
-})();
+// Global Error Handler
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  const status = err.status || err.statusCode || 500;
+  const message = err.message || "Internal Server Error";
+  res.status(status).json({ message });
+});
 
-// Vercel serverless handler — waits for initialization before processing
-export default async function handler(req: Request, res: Response) {
-  await readyPromise;
-  app(req, res);
-}
+export default app;

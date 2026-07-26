@@ -35,16 +35,16 @@ function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
       const res = await fetch("/api/admin/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username: username.trim(), password: password.trim() }),
       });
+      const data = await res.json().catch(() => ({ message: null }));
       if (res.ok) {
         onSuccess();
       } else {
-        const data = await res.json();
-        setError(data.message || "Login failed");
+        setError(data?.message || `Server returned ${res.status}: Login failed`);
       }
-    } catch {
-      setError("Something went wrong. Please try again.");
+    } catch (err: any) {
+      setError(err?.message || "Unable to connect to server. Please try again.");
     } finally {
       setLoading(false);
     }
