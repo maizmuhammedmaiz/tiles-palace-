@@ -1,4 +1,4 @@
-import { products, inquiries, services, orders, orderItems, storeSettings, purchaseInvoices, purchaseInvoiceItems, type Product, type InsertProduct, type Inquiry, type InsertInquiry, type Service, type InsertService, type Order, type InsertOrder, type OrderItem, type InsertOrderItem, type StoreSettings, type PurchaseInvoice, type InsertPurchaseInvoice, type PurchaseInvoiceItem, type InsertPurchaseInvoiceItem } from "@shared/schema";
+import { products, inquiries, services, orders, orderItems, storeSettings, purchaseInvoices, purchaseInvoiceItems, type Product, type InsertProduct, type Inquiry, type InsertInquiry, type Service, type InsertService, type Order, type InsertOrder, type OrderItem, type InsertOrderItem, type StoreSettings, type PurchaseInvoice, type InsertPurchaseInvoice, type PurchaseInvoiceItem, type InsertPurchaseInvoiceItem } from "../shared/schema";
 import { db } from "./db";
 import { eq, ilike, sql } from "drizzle-orm";
 
