@@ -8,14 +8,17 @@ const connectionString =
   process.env.DATABASE_URL ||
   "postgresql://postgres:postgres@localhost:5432/tile_haven";
 
+// Neon requires SSL; local postgres does not
 const isRemoteDb =
-  process.env.DATABASE_URL &&
+  !!process.env.DATABASE_URL &&
   !process.env.DATABASE_URL.includes("localhost") &&
   !process.env.DATABASE_URL.includes("127.0.0.1");
 
 export const pool = new Pool({
   connectionString,
   ssl: isRemoteDb ? { rejectUnauthorized: false } : false,
+  // Neon pooler timeout
+  connectionTimeoutMillis: 10000,
 });
 
 pool.on('error', (err) => {

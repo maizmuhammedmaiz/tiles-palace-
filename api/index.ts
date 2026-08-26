@@ -18,15 +18,24 @@ declare module "express-session" {
   }
 }
 
-// On Vercel (serverless), sessions don't persist across invocations.
-// We rely on the signed admin_auth cookie set at login time as the auth mechanism.
+// Debug endpoint — always works, shows env var status (no secrets)
+app.get("/api/debug", (_req, res) => {
+  res.json({
+    ok: true,
+    hasDbUrl: !!process.env.DATABASE_URL,
+    hasAdminUser: !!process.env.ADMIN_USERNAME,
+    hasAdminPass: !!process.env.ADMIN_PASSWORD,
+    nodeEnv: process.env.NODE_ENV || "not set",
+  });
+});
+
+// Session middleware — cookie-based (works on Vercel serverless)
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "fallback-secret-change-me",
     resave: false,
     saveUninitialized: false,
     cookie: {
-      // Use secure cookies on Vercel (HTTPS), plain on local
       secure: process.env.NODE_ENV === "production",
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       maxAge: 24 * 60 * 60 * 1000,
@@ -49,10 +58,15 @@ try {
   registerRoutes(httpServer, app);
 } catch (e: any) {
   console.error("Failed to register routes:", e);
+  // Return an error for all API calls if routes fail to register
+  app.use("/api", (_req: Request, res: Response) => {
+    res.status(500).json({ message: "Server init failed: " + e?.message });
+  });
 }
 
 // Global Express Error Handler
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  console.error("Express error:", err?.message);
   const status = err.status || err.statusCode || 500;
   const message = err.message || "Internal Server Error";
   res.status(status).json({ message });
