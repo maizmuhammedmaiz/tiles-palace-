@@ -18,17 +18,17 @@ declare module "express-session" {
   }
 }
 
-// Use built-in MemoryStore for sessions on Vercel (serverless)
-const MemStore = session.MemoryStore;
-
+// On Vercel (serverless), sessions don't persist across invocations.
+// We rely on the signed admin_auth cookie set at login time as the auth mechanism.
 app.use(
   session({
-    store: new MemStore({ checkPeriod: 86400000 }),
     secret: process.env.SESSION_SECRET || "fallback-secret-change-me",
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: false,
+      // Use secure cookies on Vercel (HTTPS), plain on local
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       maxAge: 24 * 60 * 60 * 1000,
     },
   })

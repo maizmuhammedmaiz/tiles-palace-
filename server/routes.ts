@@ -64,6 +64,11 @@ export function registerRoutes(
   });
 
   // Admin Auth
+  const isProduction = process.env.NODE_ENV === "production";
+  const cookieFlags = isProduction
+    ? "Path=/; Max-Age=86400; HttpOnly; Secure; SameSite=None"
+    : "Path=/; Max-Age=86400; HttpOnly; SameSite=Lax";
+
   app.post("/api/admin/login", (req, res) => {
     const { username, password } = req.body;
     const inputUser = String(username || "").trim().toLowerCase();
@@ -75,10 +80,7 @@ export function registerRoutes(
       if (req.session) {
         req.session.adminLoggedIn = true;
       }
-      res.setHeader(
-        "Set-Cookie",
-        "admin_auth=1; Path=/; Max-Age=86400; HttpOnly; SameSite=Lax"
-      );
+      res.setHeader("Set-Cookie", `admin_auth=1; ${cookieFlags}`);
       res.json({ success: true });
     } else {
       res.status(401).json({ message: "Invalid username or password" });
@@ -89,10 +91,10 @@ export function registerRoutes(
     if (req.session) {
       req.session.destroy(() => {});
     }
-    res.setHeader(
-      "Set-Cookie",
-      "admin_auth=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax"
-    );
+    const expireFlags = isProduction
+      ? "Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; Secure; SameSite=None"
+      : "Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax";
+    res.setHeader("Set-Cookie", `admin_auth=; ${expireFlags}`);
     res.json({ success: true });
   });
 
