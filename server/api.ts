@@ -1,10 +1,13 @@
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
-import { registerRoutes } from "../server/routes";
+import { registerRoutes } from "./routes";
 import { createServer } from "http";
 
 const app = express();
 const httpServer = createServer(app);
+
+// Enable trust proxy so secure cookies work behind Vercel reverse proxy
+app.set("trust proxy", 1);
 
 declare module "http" {
   interface IncomingMessage {
