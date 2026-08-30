@@ -166,23 +166,69 @@ export class DatabaseStorage implements IStorage {
     return result as any;
   }
 
+  private memorySettings: StoreSettings = {
+    id: 1,
+    whatsappNumber: "",
+    storeName: "Tiles Palace",
+    storePhone: "",
+    storeEmail: "",
+    storeAddress: "",
+  };
+
   async getSettings(): Promise<StoreSettings> {
-    const [row] = await db.select().from(storeSettings).limit(1);
-    if (row) return row;
-    const [newRow] = await db.insert(storeSettings).values({
-      whatsappNumber: "",
-      storeName: "Tiles Palace",
-      storePhone: "",
-      storeEmail: "",
-      storeAddress: "",
-    }).returning();
-    return newRow;
+    try {
+      const [row] = await db.select().from(storeSettings).limit(1);
+      if (row) {
+        this.memorySettings = row;
+        return row;
+      }
+      const [newRow] = await db.insert(storeSettings).values({
+        whatsappNumber: "",
+        storeName: "Tiles Palace",
+        storePhone: "",
+        storeEmail: "",
+        storeAddress: "",
+      }).returning();
+      if (newRow) {
+        this.memorySettings = newRow;
+        return newRow;
+      }
+    } catch (err: any) {
+      console.warn("getSettings DB failed, using memory fallback:", err?.message);
+    }
+    return this.memorySettings;
   }
 
   async updateSettings(data: Partial<Omit<StoreSettings, "id">>): Promise<StoreSettings> {
-    const existing = await this.getSettings();
-    const [updated] = await db.update(storeSettings).set(data).where(eq(storeSettings.id, existing.id)).returning();
-    return updated;
+    const cleanData = {
+      whatsappNumber: data.whatsappNumber !== undefined ? String(data.whatsappNumber) : this.memorySettings.whatsappNumber,
+      storeName: data.storeName !== undefined && String(data.storeName).trim() ? String(data.storeName) : this.memorySettings.storeName,
+      storePhone: data.storePhone !== undefined ? String(data.storePhone) : this.memorySettings.storePhone,
+      storeEmail: data.storeEmail !== undefined ? String(data.storeEmail) : this.memorySettings.storeEmail,
+      storeAddress: data.storeAddress !== undefined ? String(data.storeAddress) : this.memorySettings.storeAddress,
+    };
+
+    try {
+      const existing = await db.select().from(storeSettings).limit(1);
+      if (existing.length === 0) {
+        const [newRow] = await db.insert(storeSettings).values(cleanData).returning();
+        if (newRow) {
+          this.memorySettings = newRow;
+          return newRow;
+        }
+      } else {
+        const [updated] = await db.update(storeSettings).set(cleanData).where(eq(storeSettings.id, existing[0].id)).returning();
+        if (updated) {
+          this.memorySettings = updated;
+          return updated;
+        }
+      }
+    } catch (err: any) {
+      console.warn("updateSettings DB failed, using memory fallback:", err?.message);
+    }
+
+    this.memorySettings = { ...this.memorySettings, ...cleanData };
+    return this.memorySettings;
   }
 
   async createPurchaseInvoice(invoice: InsertPurchaseInvoice, items: InsertPurchaseInvoiceItem[]): Promise<PurchaseInvoice> {
