@@ -354,21 +354,240 @@ var DatabaseStorage = class {
     await db.insert(services).values(seedData);
   }
   async seedProducts() {
-    const existing = await db.select().from(products).limit(1);
-    if (existing.length > 0) return;
+    const existing = await db.select().from(products);
+    const existingNames = new Set(existing.map((p) => p.name.trim().toLowerCase()));
     const seedData = [
-      { name: "Premium Marble Floor Tiles", description: "Elegant white marble tiles with grey veining, perfect for living rooms.", price: "4500", category: "Tiles", imageUrl: "attached_assets/stock_images/premium_marble_floor_5df6a86a.jpg", featured: true },
-      { name: "Ceramic Wall Tiles", description: "Textured ceramic tiles for bathrooms and kitchens.", price: "2500", category: "Tiles", imageUrl: "attached_assets/stock_images/ceramic_wall_tiles_b_dac2c109.jpg", featured: false },
-      { name: "Modern Ceramic Basin", description: "Sleek countertop basin with a glossy finish.", price: "12000", category: "Washbasins", imageUrl: "https://images.unsplash.com/photo-1620626011761-996317b8d101?auto=format&fit=crop&q=80&w=800", featured: true },
-      { name: "Classic Pedestal Sink", description: "Timeless design for traditional bathrooms.", price: "9500", category: "Washbasins", imageUrl: "attached_assets/stock_images/classic_pedestal_sin_d333865c.jpg", featured: false },
-      { name: "Rainfall Shower Head", description: "Luxury 10-inch rainfall shower head in chrome finish.", price: "8500", category: "Showers", imageUrl: "attached_assets/stock_images/rainfall_shower_head_700cf018.jpg", featured: true },
-      { name: "Stainless Steel Sink", description: "Double bowl kitchen sink, scratch resistant.", price: "15000", category: "Kitchen Fittings", imageUrl: "attached_assets/stock_images/stainless_steel_kitc_9a024fed.jpg", featured: true },
-      { name: "Pull-Down Kitchen Faucet", description: "High-arc faucet with pull-down sprayer.", price: "11000", category: "Kitchen Fittings", imageUrl: "https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&q=80&w=800", featured: false },
-      { name: "Smart LED Bulb", description: "WiFi enabled color changing bulb.", price: "1500", category: "Lighting", imageUrl: "https://images.unsplash.com/photo-1550989460-0adf9ea622e2?auto=format&fit=crop&q=80&w=800", featured: false },
-      { name: "Modern Pendant Light", description: "Fancy hanging light for dining areas.", price: "7500", category: "Lighting", imageUrl: "https://images.unsplash.com/photo-1565814329452-e1efa11c5b89?auto=format&fit=crop&q=80&w=800", featured: true },
-      { name: "Premium Digital Water Heater with Shower", description: "Advanced digital water heater featuring real-time temperature display and integrated shower system.", price: "20000", category: "Water Heaters", imageUrl: "/images/water-heater-shower.png", featured: false }
+      // ── Tiles ──
+      {
+        name: "Premium Marble Floor Tiles",
+        description: "Elegant white marble tiles with grey veining, high gloss polish for luxurious living rooms and halls.",
+        price: "4500",
+        costPrice: "3200",
+        stockQty: 120,
+        category: "Tiles",
+        imageUrl: "attached_assets/stock_images/premium_marble_floor_5df6a86a.jpg",
+        featured: true
+      },
+      {
+        name: "Ceramic Wall Tiles",
+        description: "Textured ceramic wall tiles with moisture resistance, ideal for kitchens, washrooms, and accent walls.",
+        price: "2500",
+        costPrice: "1800",
+        stockQty: 250,
+        category: "Tiles",
+        imageUrl: "attached_assets/stock_images/ceramic_wall_tiles_b_dac2c109.jpg",
+        featured: false
+      },
+      {
+        name: "Rustic Wood Plank Vitrified Tiles",
+        description: "Natural hardwood grain texture with ultra-durable vitrified ceramic core. Warm oak matte finish.",
+        price: "3800",
+        costPrice: "2700",
+        stockQty: 180,
+        category: "Tiles",
+        imageUrl: "https://images.unsplash.com/photo-1581858726788-75bc0f6a952d?auto=format&fit=crop&q=80&w=800",
+        featured: true
+      },
+      {
+        name: "Glossy White Subway Backsplash Tiles",
+        description: "Classic 3x6 inch beveled subway tiles in brilliant gloss white. Timeless kitchen and bathroom backsplash.",
+        price: "1950",
+        costPrice: "1350",
+        stockQty: 300,
+        category: "Tiles",
+        imageUrl: "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&q=80&w=800",
+        featured: false
+      },
+      {
+        name: "Hexagonal Moroccan Mosaic Tiles",
+        description: "Geometric hand-crafted pattern mosaic tiles. Vibrant Mediterranean motifs for statement floors & walls.",
+        price: "5200",
+        costPrice: "3800",
+        stockQty: 95,
+        category: "Tiles",
+        imageUrl: "https://images.unsplash.com/photo-1590381105924-c72589b9ef3f?auto=format&fit=crop&q=80&w=800",
+        featured: true
+      },
+      {
+        name: "Matte Anthracite Outdoor Pavers",
+        description: "20mm thick anti-skid porcelain pavers for patios, swimming pool decks, walkways, and balconies.",
+        price: "4900",
+        costPrice: "3500",
+        stockQty: 140,
+        category: "Tiles",
+        imageUrl: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&q=80&w=800",
+        featured: false
+      },
+      {
+        name: "Terrazzo Speckled Porcelain Slabs",
+        description: "Modern Italian terrazzo look with embedded stone granules in soft ivory base. Satin anti-stain finish.",
+        price: "5800",
+        costPrice: "4200",
+        stockQty: 80,
+        category: "Tiles",
+        imageUrl: "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&q=80&w=800",
+        featured: true
+      },
+      // ── Washbasins ──
+      {
+        name: "Modern Ceramic Basin",
+        description: "Sleek countertop basin with a glossy nano-coated scratch-proof finish and overflow drain.",
+        price: "12000",
+        costPrice: "8500",
+        stockQty: 45,
+        category: "Washbasins",
+        imageUrl: "https://images.unsplash.com/photo-1620626011761-996317b8d101?auto=format&fit=crop&q=80&w=800",
+        featured: true
+      },
+      {
+        name: "Classic Pedestal Sink",
+        description: "Timeless freestanding ceramic pedestal basin for traditional and vintage style bathrooms.",
+        price: "9500",
+        costPrice: "6800",
+        stockQty: 30,
+        category: "Washbasins",
+        imageUrl: "attached_assets/stock_images/classic_pedestal_sin_d333865c.jpg",
+        featured: false
+      },
+      {
+        name: "Matte Black Oval Vessel Basin",
+        description: "Ultra-contemporary thin-edge matte black ceramic vessel sink with anti-bacterial ceramic coating.",
+        price: "14500",
+        costPrice: "10200",
+        stockQty: 25,
+        category: "Washbasins",
+        imageUrl: "https://images.unsplash.com/photo-1584622781564-1d987f7333c1?auto=format&fit=crop&q=80&w=800",
+        featured: true
+      },
+      {
+        name: "Floating Wall-Mounted Vanity Basin",
+        description: "Compact integrated ceramic vanity with concealed plumbing bracket and towel rail space.",
+        price: "11500",
+        costPrice: "8100",
+        stockQty: 35,
+        category: "Washbasins",
+        imageUrl: "https://images.unsplash.com/photo-1604014237800-1c9102c219da?auto=format&fit=crop&q=80&w=800",
+        featured: false
+      },
+      // ── Showers & Bath ──
+      {
+        name: "Rainfall Shower Head",
+        description: "Luxury 10-inch ultra-slim stainless steel rainfall shower head in mirror-chrome finish with silicone nozzles.",
+        price: "8500",
+        costPrice: "5800",
+        stockQty: 60,
+        category: "Showers",
+        imageUrl: "attached_assets/stock_images/rainfall_shower_head_700cf018.jpg",
+        featured: true
+      },
+      {
+        name: "Matte Black Thermostatic Waterfall Shower Set",
+        description: "Dual-function exposed shower column with overhead rain shower, waterfall spout, and handheld spray.",
+        price: "24000",
+        costPrice: "17000",
+        stockQty: 20,
+        category: "Showers",
+        imageUrl: "https://images.unsplash.com/photo-1584622781564-1d987f7333c1?auto=format&fit=crop&q=80&w=800",
+        featured: true
+      },
+      {
+        name: "Ceiling Concealed Body Jet System",
+        description: "High-pressure multi-angle massage body jets with anti-limescale brass construction.",
+        price: "16500",
+        costPrice: "11500",
+        stockQty: 15,
+        category: "Showers",
+        imageUrl: "https://images.unsplash.com/photo-1600585154526-990dced4db0d?auto=format&fit=crop&q=80&w=800",
+        featured: false
+      },
+      // ── Kitchen Fittings ──
+      {
+        name: "Stainless Steel Sink",
+        description: "Heavy duty 304 grade double bowl kitchen sink with sound deadening pads and drain basket.",
+        price: "15000",
+        costPrice: "10500",
+        stockQty: 40,
+        category: "Kitchen Fittings",
+        imageUrl: "attached_assets/stock_images/stainless_steel_kitc_9a024fed.jpg",
+        featured: true
+      },
+      {
+        name: "Pull-Down Kitchen Faucet",
+        description: "High-arc 360-degree swivel commercial faucet with dual-mode pull-down spray head.",
+        price: "11000",
+        costPrice: "7800",
+        stockQty: 50,
+        category: "Kitchen Fittings",
+        imageUrl: "https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&q=80&w=800",
+        featured: false
+      },
+      {
+        name: "Matte Gold Brass Kitchen Mixer",
+        description: "Solid brass European swan neck kitchen mixer with ceramic disc cartridge and PVD gold finish.",
+        price: "13500",
+        costPrice: "9200",
+        stockQty: 28,
+        category: "Kitchen Fittings",
+        imageUrl: "https://images.unsplash.com/photo-1588854337236-6889d631faa8?auto=format&fit=crop&q=80&w=800",
+        featured: true
+      },
+      // ── Lighting ──
+      {
+        name: "Smart LED Bulb",
+        description: "WiFi enabled 12W RGB + Tunable White LED bulb compatible with Alexa and Google Home.",
+        price: "1500",
+        costPrice: "900",
+        stockQty: 150,
+        category: "Lighting",
+        imageUrl: "https://images.unsplash.com/photo-1550989460-0adf9ea622e2?auto=format&fit=crop&q=80&w=800",
+        featured: false
+      },
+      {
+        name: "Modern Pendant Light",
+        description: "Geometric Scandinavian black & brass hanging light fixture for dining tables, kitchen islands, and bars.",
+        price: "7500",
+        costPrice: "4800",
+        stockQty: 35,
+        category: "Lighting",
+        imageUrl: "https://images.unsplash.com/photo-1565814329452-e1efa11c5b89?auto=format&fit=crop&q=80&w=800",
+        featured: true
+      },
+      {
+        name: "Architectural Recessed Ceiling Spotlights (Set of 6)",
+        description: "Warm 3000K anti-glare COB LED spotlights with aluminum heat sinks, ideal for false ceiling illumination.",
+        price: "4200",
+        costPrice: "2600",
+        stockQty: 70,
+        category: "Lighting",
+        imageUrl: "https://images.unsplash.com/photo-1513506003901-1e6a229e2d15?auto=format&fit=crop&q=80&w=800",
+        featured: false
+      },
+      // ── Water Heaters ──
+      {
+        name: "Premium Digital Water Heater with Shower",
+        description: "Advanced 25L digital water heater featuring real-time temperature LED display and integrated shower system.",
+        price: "20000",
+        costPrice: "14500",
+        stockQty: 22,
+        category: "Water Heaters",
+        imageUrl: "/images/water-heater-shower.png",
+        featured: false
+      },
+      {
+        name: "Instant Tankless Geyser 3kW",
+        description: "Compact wall-mount instant water heater with copper heating element and auto-cutoff safety.",
+        price: "6800",
+        costPrice: "4600",
+        stockQty: 40,
+        category: "Water Heaters",
+        imageUrl: "https://images.unsplash.com/photo-1585771724684-38269d6639fd?auto=format&fit=crop&q=80&w=800",
+        featured: true
+      }
     ];
-    await db.insert(products).values(seedData);
+    const toInsert = seedData.filter((p) => !existingNames.has(p.name.trim().toLowerCase()));
+    if (toInsert.length > 0) {
+      await db.insert(products).values(toInsert);
+    }
   }
 };
 var storage = new DatabaseStorage();
@@ -521,6 +740,11 @@ function registerRoutes(httpServer2, app2) {
     const id = parseInt(req.params.id);
     const product = await storage.updateProduct(id, req.body);
     res.json(product);
+  });
+  app2.delete("/api/admin/products/:id", requireAdmin, async (req, res) => {
+    const id = parseInt(req.params.id);
+    await storage.deleteProduct(id);
+    res.json({ success: true });
   });
   app2.get("/api/admin/inquiries", requireAdmin, async (req, res) => {
     const items = await storage.getInquiries();

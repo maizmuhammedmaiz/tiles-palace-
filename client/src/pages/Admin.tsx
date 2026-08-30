@@ -15,7 +15,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertProductSchema, type Product, type Order, type Service, type StoreSettings, type Inquiry, type PurchaseInvoice, type PurchaseInvoiceItem } from "@shared/schema";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { Plus, ShoppingCart, Package, BarChart3, Check, LogOut, Printer, Image as ImageIcon, Lock, Trash2, Images, Video, Settings, MessageCircle as MessageCircleIcon, Store as StoreIcon, Truck, FileText, RotateCcw, Upload, Pencil, X, ChevronDown, ChevronUp, Receipt, TrendingUp, IndianRupee, ArrowUpRight, Eye, PackagePlus } from "lucide-react";
+import { Plus, ShoppingCart, Package, BarChart3, Check, LogOut, Printer, Image as ImageIcon, Lock, Trash2, Images, Video, Settings, MessageCircle as MessageCircleIcon, Store as StoreIcon, Truck, FileText, RotateCcw, Upload, Pencil, X, ChevronDown, ChevronUp, Receipt, TrendingUp, IndianRupee, ArrowUpRight, Eye, PackagePlus, Search } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -1431,13 +1431,67 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
     queryKey: ["/api/admin/analytics/profit"],
   });
 
+  const [isAddProductOpen, setIsAddProductOpen] = useState(false);
+  const [productSearch, setProductSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+
   const createProductMutation = useMutation({
     mutationFn: async (data: any) => {
-      await apiRequest("POST", "/api/admin/products", data);
+      return await apiRequest("POST", "/api/admin/products", data);
+    },
+    onMutate: async (newProd) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/products"] });
+      const previous = queryClient.getQueryData<Product[]>(["/api/products"]) || [];
+      const optimisticProd: Product = {
+        id: Date.now(),
+        name: newProd.name,
+        description: newProd.description || "",
+        price: String(newProd.price),
+        category: newProd.category || "Tiles",
+        imageUrl: newProd.imageUrl || "https://images.unsplash.com/photo-1581858726788-75bc0f6a952d?auto=format&fit=crop&q=80&w=800",
+        featured: !!newProd.featured,
+        stockQty: Number(newProd.stockQty) || 0,
+        costPrice: newProd.costPrice ? String(newProd.costPrice) : null,
+      };
+      queryClient.setQueryData<Product[]>(["/api/products"], [optimisticProd, ...previous]);
+      setIsAddProductOpen(false);
+      return { previous };
+    },
+    onError: (_err, _newProd, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(["/api/products"], context.previous);
+      }
+      toast({ title: "Failed to add product", variant: "destructive" });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
     },
     onSuccess: () => {
+      toast({ title: "✅ Product added to inventory!" });
+    },
+  });
+
+  const deleteProductMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/admin/products/${id}`, {});
+    },
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/products"] });
+      const previous = queryClient.getQueryData<Product[]>(["/api/products"]) || [];
+      queryClient.setQueryData<Product[]>(["/api/products"], previous.filter(p => p.id !== id));
+      return { previous };
+    },
+    onError: (_err, _id, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(["/api/products"], context.previous);
+      }
+      toast({ title: "Failed to delete product", variant: "destructive" });
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
-      toast({ title: "Product added successfully" });
+    },
+    onSuccess: () => {
+      toast({ title: "Product removed from inventory" });
     },
   });
 
@@ -1461,6 +1515,15 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
       toast({ title: "Order status updated" });
     },
   });
+
+  const filteredProducts = products?.filter((p) => {
+    const matchesSearch = !productSearch ||
+      p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+      p.category.toLowerCase().includes(productSearch.toLowerCase()) ||
+      p.description.toLowerCase().includes(productSearch.toLowerCase());
+    const matchesCategory = categoryFilter === "all" || p.category.toLowerCase() === categoryFilter.toLowerCase();
+    return matchesSearch && matchesCategory;
+  }) || [];
 
   return (
     <div className="min-h-screen bg-background">
@@ -1517,105 +1580,215 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
 
           <TabsContent value="inventory">
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Manage Products</CardTitle>
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button className="flex gap-2">
-                      <Plus className="h-4 w-4" /> Add Product
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Add New Product</DialogTitle>
-                    </DialogHeader>
-                    <ProductForm
-                      onSubmit={(data) => createProductMutation.mutate(data)}
-                      isPending={createProductMutation.isPending}
+              <CardHeader className="space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div>
+                    <CardTitle className="text-xl">Manage Products ({filteredProducts.length})</CardTitle>
+                    <p className="text-xs text-muted-foreground mt-0.5">Quickly view, add, edit prices, update stock, or remove inventory items.</p>
+                  </div>
+                  <Dialog open={isAddProductOpen} onOpenChange={setIsAddProductOpen}>
+                    <DialogTrigger asChild>
+                      <Button className="flex gap-2 shrink-0 bg-primary hover:bg-primary/90 shadow-sm">
+                        <Plus className="h-4 w-4" /> Add Product
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle>Add New Product</DialogTitle>
+                      </DialogHeader>
+                      <ProductForm
+                        onSubmit={(data) => createProductMutation.mutate(data)}
+                        isPending={createProductMutation.isPending}
+                      />
+                    </DialogContent>
+                  </Dialog>
+                </div>
+
+                {/* Filter and Search Bar */}
+                <div className="flex flex-col sm:flex-row gap-3 items-center justify-between pt-1 border-t">
+                  <div className="relative w-full sm:w-72">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by name, category..."
+                      value={productSearch}
+                      onChange={(e) => setProductSearch(e.target.value)}
+                      className="pl-8 text-sm h-9"
                     />
-                  </DialogContent>
-                </Dialog>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Image</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead>Price (₹)</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {products?.map((product) => (
-                      <TableRow key={product.id}>
-                        <TableCell>
-                          <img src={product.imageUrl} alt={product.name} className="w-12 h-12 object-cover rounded" />
-                        </TableCell>
-                        <TableCell className="font-medium">{product.name}</TableCell>
-                        <TableCell>{product.category}</TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            defaultValue={product.price}
-                            className="w-32"
-                            onBlur={(e) => {
-                              if (e.target.value !== product.price) {
-                                updateProductMutation.mutate({
-                                  id: product.id,
-                                  data: { price: e.target.value },
-                                });
-                              }
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button variant="outline" size="sm">
-                                <ImageIcon className="h-4 w-4 mr-2" /> Edit Photo
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                              <DialogHeader>
-                                <DialogTitle>Update Product Photo</DialogTitle>
-                              </DialogHeader>
-                              <div className="space-y-4 py-4">
-                                <div className="space-y-2">
-                                  <Label>Image URL</Label>
-                                  <Input
-                                    placeholder="Enter image URL"
-                                    defaultValue={product.imageUrl}
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter') {
-                                        updateProductMutation.mutate({
-                                          id: product.id,
-                                          data: { imageUrl: e.currentTarget.value },
-                                        });
-                                      }
-                                    }}
-                                  />
-                                  <p className="text-xs text-muted-foreground">Press Enter to save changes</p>
-                                </div>
-                                {product.imageUrl && (
-                                  <div className="space-y-2">
-                                    <Label>Preview</Label>
-                                    <img
-                                      src={product.imageUrl}
-                                      alt="Preview"
-                                      className="w-full h-40 object-cover rounded-md border"
-                                    />
-                                  </div>
-                                )}
-                              </div>
-                            </DialogContent>
-                          </Dialog>
-                        </TableCell>
-                      </TableRow>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
+                    {["all", "Tiles", "Washbasins", "Showers", "Kitchen Fittings", "Lighting", "Water Heaters"].map((cat) => (
+                      <Button
+                        key={cat}
+                        type="button"
+                        size="sm"
+                        variant={categoryFilter.toLowerCase() === cat.toLowerCase() ? "default" : "outline"}
+                        className="h-7 text-xs px-2.5 whitespace-nowrap"
+                        onClick={() => setCategoryFilter(cat)}
+                      >
+                        {cat === "all" ? "All Categories" : cat}
+                      </Button>
                     ))}
-                  </TableBody>
-                </Table>
+                  </div>
+                </div>
+              </CardHeader>
+
+              <CardContent>
+                {filteredProducts.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Package className="h-10 w-10 mx-auto mb-2 opacity-25" />
+                    <p className="text-sm font-medium">No products found</p>
+                    <p className="text-xs mt-1">Try changing search keywords or category filters.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/40">
+                          <TableHead className="w-14">Image</TableHead>
+                          <TableHead className="min-w-[180px]">Product Details</TableHead>
+                          <TableHead className="w-32">Category</TableHead>
+                          <TableHead className="w-28">Stock Qty</TableHead>
+                          <TableHead className="w-32">Selling Price (₹)</TableHead>
+                          <TableHead className="w-32">Cost Price (₹)</TableHead>
+                          <TableHead className="w-28 text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredProducts.map((product) => (
+                          <TableRow key={product.id} className="hover:bg-muted/20">
+                            <TableCell className="p-2">
+                              <img
+                                src={product.imageUrl}
+                                alt={product.name}
+                                className="w-12 h-12 object-cover rounded-md border shadow-2xs"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1581858726788-75bc0f6a952d?auto=format&fit=crop&q=80&w=800";
+                                }}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <div className="font-semibold text-sm line-clamp-1">{product.name}</div>
+                              <div className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{product.description}</div>
+                              {product.featured && <Badge variant="secondary" className="text-[10px] mt-1 px-1.5 py-0">Featured</Badge>}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="text-xs font-normal">
+                                {product.category}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                min={0}
+                                defaultValue={product.stockQty ?? 0}
+                                className="w-20 h-8 text-xs font-medium"
+                                onBlur={(e) => {
+                                  const newQty = parseInt(e.target.value) || 0;
+                                  if (newQty !== (product.stockQty ?? 0)) {
+                                    updateProductMutation.mutate({
+                                      id: product.id,
+                                      data: { stockQty: newQty },
+                                    });
+                                  }
+                                }}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                defaultValue={product.price}
+                                className="w-28 h-8 text-xs font-semibold"
+                                onBlur={(e) => {
+                                  if (e.target.value !== product.price) {
+                                    updateProductMutation.mutate({
+                                      id: product.id,
+                                      data: { price: e.target.value },
+                                    });
+                                  }
+                                }}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                placeholder="—"
+                                defaultValue={product.costPrice || ""}
+                                className="w-28 h-8 text-xs text-muted-foreground"
+                                onBlur={(e) => {
+                                  if (e.target.value !== (product.costPrice || "")) {
+                                    updateProductMutation.mutate({
+                                      id: product.id,
+                                      data: { costPrice: e.target.value || null },
+                                    });
+                                  }
+                                }}
+                              />
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <Dialog>
+                                  <DialogTrigger asChild>
+                                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title="Edit Photo">
+                                      <ImageIcon className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                                    </Button>
+                                  </DialogTrigger>
+                                  <DialogContent>
+                                    <DialogHeader>
+                                      <DialogTitle>Update Product Photo</DialogTitle>
+                                    </DialogHeader>
+                                    <div className="space-y-4 py-4">
+                                      <div className="space-y-2">
+                                        <Label>Image URL</Label>
+                                        <Input
+                                          placeholder="Enter image URL"
+                                          defaultValue={product.imageUrl}
+                                          onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                              updateProductMutation.mutate({
+                                                id: product.id,
+                                                data: { imageUrl: e.currentTarget.value },
+                                              });
+                                            }
+                                          }}
+                                        />
+                                        <p className="text-xs text-muted-foreground">Press Enter to save changes</p>
+                                      </div>
+                                      {product.imageUrl && (
+                                        <div className="space-y-2">
+                                          <Label>Preview</Label>
+                                          <img
+                                            src={product.imageUrl}
+                                            alt="Preview"
+                                            className="w-full h-40 object-cover rounded-md border"
+                                          />
+                                        </div>
+                                      )}
+                                    </div>
+                                  </DialogContent>
+                                </Dialog>
+
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                  title="Delete Product"
+                                  onClick={() => {
+                                    if (confirm(`Are you sure you want to delete "${product.name}"?`)) {
+                                      deleteProductMutation.mutate(product.id);
+                                    }
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -2344,6 +2517,9 @@ function PortfolioForm({ onSubmit, isPending }: { onSubmit: (data: any) => void;
 }
 
 function ProductForm({ onSubmit, isPending }: { onSubmit: (data: any) => void; isPending: boolean }) {
+  const [imagePreview, setImagePreview] = useState("");
+  const [uploading, setUploading] = useState(false);
+
   const form = useForm({
     resolver: zodResolver(insertProductSchema),
     defaultValues: {
@@ -2352,21 +2528,67 @@ function ProductForm({ onSubmit, isPending }: { onSubmit: (data: any) => void; i
       price: "",
       category: "Tiles",
       imageUrl: "",
+      stockQty: 50,
+      costPrice: "",
       featured: false,
     },
   });
 
+  const handleImageFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const maxDim = 800;
+        let width = img.width;
+        let height = img.height;
+        if (width > height && width > maxDim) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        } else if (height > maxDim) {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx?.drawImage(img, 0, 0, width, height);
+        const compressedBase64 = canvas.toDataURL("image/jpeg", 0.75);
+        setImagePreview(compressedBase64);
+        form.setValue("imageUrl", compressedBase64, { shouldValidate: true });
+        setUploading(false);
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleFormSubmit = (data: any) => {
+    onSubmit({
+      ...data,
+      stockQty: Number(data.stockQty) || 0,
+      costPrice: data.costPrice ? String(data.costPrice) : null,
+    });
+    form.reset();
+    setImagePreview("");
+  };
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
         <FormField
           control={form.control}
           name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Name</FormLabel>
+              <FormLabel>Product Name</FormLabel>
               <FormControl>
-                <Input placeholder="Product name" {...field} />
+                <Input placeholder="e.g. Italian Calacatta Marble Tiles" {...field} required />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -2379,21 +2601,62 @@ function ProductForm({ onSubmit, isPending }: { onSubmit: (data: any) => void; i
             <FormItem>
               <FormLabel>Description</FormLabel>
               <FormControl>
-                <Input placeholder="Description" {...field} />
+                <Textarea placeholder="Short product details, size, finish..." {...field} rows={2} required />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3">
+          <FormField
+            control={form.control}
+            name="category"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Category</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Category" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="Tiles">Tiles</SelectItem>
+                    <SelectItem value="Washbasins">Washbasins</SelectItem>
+                    <SelectItem value="Showers">Showers</SelectItem>
+                    <SelectItem value="Kitchen Fittings">Kitchen Fittings</SelectItem>
+                    <SelectItem value="Lighting">Lighting</SelectItem>
+                    <SelectItem value="Water Heaters">Water Heaters</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="stockQty"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Initial Stock Qty</FormLabel>
+                <FormControl>
+                  <Input type="number" placeholder="50" {...field} onChange={e => field.onChange(parseInt(e.target.value) || 0)} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
           <FormField
             control={form.control}
             name="price"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Price (₹)</FormLabel>
+                <FormLabel>Selling Price (₹)</FormLabel>
                 <FormControl>
-                  <Input type="number" placeholder="0" {...field} />
+                  <Input type="number" placeholder="4500" {...field} required />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -2401,12 +2664,12 @@ function ProductForm({ onSubmit, isPending }: { onSubmit: (data: any) => void; i
           />
           <FormField
             control={form.control}
-            name="category"
+            name="costPrice"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Category</FormLabel>
+                <FormLabel>Cost Price (₹)</FormLabel>
                 <FormControl>
-                  <Input placeholder="Category" {...field} />
+                  <Input type="number" placeholder="3200" {...field} value={field.value || ""} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -2418,16 +2681,39 @@ function ProductForm({ onSubmit, isPending }: { onSubmit: (data: any) => void; i
           name="imageUrl"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Image URL</FormLabel>
-              <FormControl>
-                <Input placeholder="https://..." {...field} />
-              </FormControl>
+              <FormLabel>Product Photo</FormLabel>
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <Input placeholder="Paste image URL (https://...)" {...field} onChange={e => { field.onChange(e); setImagePreview(e.target.value); }} />
+                  <label className="cursor-pointer inline-flex items-center justify-center px-3 py-2 border rounded-md text-xs font-medium bg-secondary hover:bg-secondary/80 shrink-0">
+                    <Upload className="h-4 w-4 mr-1" /> Browse
+                    <input type="file" accept="image/*" className="hidden" onChange={handleImageFile} />
+                  </label>
+                </div>
+                {(imagePreview || field.value) && (
+                  <div className="relative w-full h-28 rounded-md overflow-hidden border">
+                    <img src={imagePreview || field.value} alt="Preview" className="w-full h-full object-cover" />
+                  </div>
+                )}
+              </div>
               <FormMessage />
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full" disabled={isPending}>
-          {isPending ? "Adding..." : "Add Product"}
+        <FormField
+          control={form.control}
+          name="featured"
+          render={({ field }) => (
+            <FormItem className="flex flex-row items-center space-x-2 space-y-0">
+              <FormControl>
+                <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+              </FormControl>
+              <FormLabel className="text-sm font-normal cursor-pointer">Feature on Homepage</FormLabel>
+            </FormItem>
+          )}
+        />
+        <Button type="submit" className="w-full" disabled={isPending || uploading}>
+          {isPending ? "Adding Product..." : "Add Product"}
         </Button>
       </form>
     </Form>

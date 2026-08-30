@@ -118,6 +118,12 @@ export function registerRoutes(
     res.json(product);
   });
 
+  app.delete("/api/admin/products/:id", requireAdmin, async (req, res) => {
+    const id = parseInt(req.params.id);
+    await storage.deleteProduct(id);
+    res.json({ success: true });
+  });
+
   app.get("/api/admin/inquiries", requireAdmin, async (req, res) => {
     const items = await storage.getInquiries();
     res.json(items);
