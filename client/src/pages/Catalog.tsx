@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Navigation } from "@/components/Navigation";
 import { Footer } from "@/components/Footer";
 import { ProductCard } from "@/components/ProductCard";
@@ -7,15 +7,16 @@ import { useProducts } from "@/hooks/use-products";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { Sparkles, Camera } from "lucide-react";
+import { Sparkles, Camera, Search, X } from "lucide-react";
 
 const categories = [
   { id: "all", label: "All Products" },
   { id: "tiles", label: "Tiles" },
   { id: "lighting", label: "Lighting" },
-  { id: "kitchen", label: "Kitchen" },
-  { id: "shower", label: "Bath & Shower" },
+  { id: "kitchen", label: "Kitchen Fittings" },
+  { id: "shower", label: "Bath & Showers" },
   { id: "washbasin", label: "Wash Basins" },
   { id: "water-heaters", label: "Water Heaters" },
 ];
@@ -24,29 +25,56 @@ export default function Catalog() {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [, setLocation] = useLocation();
 
-  // Get initial values from URL
-  const initialCategory = new URLSearchParams(window.location.search).get("category") || "all";
-  const searchQuery = new URLSearchParams(window.location.search).get("search") || "";
+  const getUrlParams = () => {
+    const params = new URLSearchParams(window.location.search);
+    return {
+      category: params.get("category") || "all",
+      search: params.get("search") || "",
+    };
+  };
 
-  const [activeCategory, setActiveCategory] = useState(initialCategory);
+  const [activeCategory, setActiveCategory] = useState(getUrlParams().category);
+  const [searchTerm, setSearchTerm] = useState(getUrlParams().search);
 
-  // Pass undefined if 'all' is selected to fetch everything
-  const { data: allProducts, isLoading } = useProducts(
-    activeCategory === "all" ? undefined : activeCategory
-  );
+  // Sync state if URL changes
+  useEffect(() => {
+    const { category, search } = getUrlParams();
+    setActiveCategory(category);
+    if (search) setSearchTerm(search);
+  }, []);
 
-  const products = allProducts?.filter(p => 
-    p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.description.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const { data: allProducts, isLoading } = useProducts();
+
+  const isCategoryMatch = (productCategory: string, selected: string) => {
+    if (selected === "all") return true;
+    const prod = (productCategory || "").toLowerCase();
+    const sel = selected.toLowerCase();
+    if (sel === "tiles") return prod.includes("tile");
+    if (sel === "lighting") return prod.includes("light");
+    if (sel === "kitchen") return prod.includes("kitchen");
+    if (sel === "shower" || sel === "bath") return prod.includes("shower") || prod.includes("bath");
+    if (sel === "washbasin" || sel === "basin") return prod.includes("basin") || prod.includes("washbasin") || prod.includes("sink");
+    if (sel === "water-heaters" || sel === "heating") return prod.includes("heat") || prod.includes("geyser");
+    return prod.includes(sel);
+  };
+
+  const products = allProducts?.filter(p => {
+    const matchesCat = isCategoryMatch(p.category, activeCategory);
+    const q = searchTerm.trim().toLowerCase();
+    const matchesSearch = !q ||
+      p.name.toLowerCase().includes(q) ||
+      p.description.toLowerCase().includes(q) ||
+      p.category.toLowerCase().includes(q);
+    return matchesCat && matchesSearch;
+  });
 
   const handleCategoryChange = (catId: string) => {
     setActiveCategory(catId);
-    if (catId === "all") {
-      setLocation("/catalog", { replace: true });
-    } else {
-      setLocation(`/catalog?category=${catId}`, { replace: true });
-    }
+    const params = new URLSearchParams();
+    if (catId !== "all") params.set("category", catId);
+    if (searchTerm.trim()) params.set("search", searchTerm.trim());
+    const newSearch = params.toString();
+    setLocation(`/catalog${newSearch ? `?${newSearch}` : ""}`, { replace: true });
   };
 
   return (
@@ -128,10 +156,41 @@ export default function Catalog() {
             </div>
           ) : (
             <>
-              <div className="flex items-center justify-between mb-6">
-                <span className="text-sm text-muted-foreground">
-                  Showing {products?.length || 0} results
-                </span>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-6">
+                <div className="relative flex-1 max-w-md">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search in catalog..."
+                    value={searchTerm}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value);
+                      const params = new URLSearchParams();
+                      if (activeCategory !== "all") params.set("category", activeCategory);
+                      if (e.target.value.trim()) params.set("search", e.target.value.trim());
+                      const q = params.toString();
+                      setLocation(`/catalog${q ? `?${q}` : ""}`, { replace: true });
+                    }}
+                    className="pl-9 pr-8 h-10 text-sm bg-white"
+                  />
+                  {searchTerm && (
+                    <button
+                      onClick={() => {
+                        setSearchTerm("");
+                        const params = new URLSearchParams();
+                        if (activeCategory !== "all") params.set("category", activeCategory);
+                        const q = params.toString();
+                        setLocation(`/catalog${q ? `?${q}` : ""}`, { replace: true });
+                      }}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="text-sm font-medium text-muted-foreground self-center">
+                  Showing <strong className="text-foreground font-bold">{products?.length || 0}</strong> products
+                </div>
               </div>
               
               {products && products.length > 0 ? (
@@ -143,7 +202,17 @@ export default function Catalog() {
               ) : (
                 <div className="text-center py-20 bg-slate-50 rounded-xl border border-dashed">
                   <h3 className="text-xl font-bold text-muted-foreground mb-2">No products found</h3>
-                  <p className="text-muted-foreground">Try selecting a different category.</p>
+                  <p className="text-muted-foreground mb-4">Try adjusting your search terms or category filter.</p>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setActiveCategory("all");
+                      setSearchTerm("");
+                      setLocation("/catalog", { replace: true });
+                    }}
+                  >
+                    View All Products
+                  </Button>
                 </div>
               )}
             </>

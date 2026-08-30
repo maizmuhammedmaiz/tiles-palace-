@@ -130,11 +130,31 @@ var db = drizzle(pool, { schema: schema_exports });
 import { eq, ilike, sql } from "drizzle-orm";
 var DatabaseStorage = class {
   async getProducts(category) {
-    if (category) {
-      const pattern = `%${category.replace(/-/g, "%")}%`;
-      return await db.select().from(products).where(ilike(products.category, pattern));
+    let list = await db.select().from(products);
+    if (list.length === 0) {
+      await this.seedProducts();
+      list = await db.select().from(products);
     }
-    return await db.select().from(products);
+    if (category && category.trim().toLowerCase() !== "all") {
+      const cleanCat = category.trim().toLowerCase();
+      if (cleanCat === "tiles") {
+        return list.filter((p) => p.category.toLowerCase().includes("tile"));
+      } else if (cleanCat === "lighting") {
+        return list.filter((p) => p.category.toLowerCase().includes("light"));
+      } else if (cleanCat === "kitchen") {
+        return list.filter((p) => p.category.toLowerCase().includes("kitchen"));
+      } else if (cleanCat === "shower" || cleanCat === "bath") {
+        return list.filter((p) => p.category.toLowerCase().includes("shower") || p.category.toLowerCase().includes("bath"));
+      } else if (cleanCat === "washbasin" || cleanCat === "basin") {
+        return list.filter((p) => p.category.toLowerCase().includes("basin") || p.category.toLowerCase().includes("washbasin"));
+      } else if (cleanCat === "water-heaters" || cleanCat === "heating") {
+        return list.filter((p) => p.category.toLowerCase().includes("heat") || p.category.toLowerCase().includes("geyser"));
+      } else {
+        const pattern = `%${cleanCat.replace(/-/g, "%")}%`;
+        return await db.select().from(products).where(ilike(products.category, pattern));
+      }
+    }
+    return list;
   }
   async getProduct(id) {
     const [product] = await db.select().from(products).where(eq(products.id, id));
