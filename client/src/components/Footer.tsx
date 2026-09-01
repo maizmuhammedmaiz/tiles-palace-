@@ -1,14 +1,27 @@
 import { Link } from "wouter";
+import { useQuery } from "@tanstack/react-query";
+import { StoreSettings } from "@shared/schema";
 
 export function Footer() {
+  const { data: settings } = useQuery<StoreSettings>({
+    queryKey: ["/api/settings"],
+  });
+
+  const storeName = settings?.storeName || "Tiles Palace";
+  const storePhone = settings?.storePhone || "+91 98765 43210";
+  const storeEmail = settings?.storeEmail || "contact@tilespalace.com";
+  const storeAddress = settings?.storeAddress || "Ayanikkad, Payyoli, Iringal\nKerala 673522";
+  const rawWa = settings?.whatsappNumber || "919876543210";
+  const cleanWa = rawWa.replace(/[^0-9]/g, "");
+
   return (
     <footer className="bg-slate-900 text-slate-200 mt-auto">
       <div className="container px-4 py-12 md:py-16">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 lg:gap-12">
           <div className="space-y-4">
             <div className="flex items-center gap-2">
-              <img src="/logo.png" alt="Tiles Palace" className="w-8 h-8 object-contain rounded-md" />
-              <h3 className="text-xl font-display font-bold text-white">Tiles Palace</h3>
+              <img src="/logo.png" alt={storeName} className="w-8 h-8 object-contain rounded-md" />
+              <h3 className="text-xl font-display font-bold text-white">{storeName}</h3>
             </div>
             <p className="text-sm text-slate-400 leading-relaxed">
               Premium tiles, kitchen fittings, and lighting solutions for the modern home. Elevate your space with our curated collection.
@@ -38,13 +51,20 @@ export function Footer() {
           <div>
             <h4 className="font-semibold text-white mb-4">Contact</h4>
             <ul className="space-y-2 text-sm text-slate-400">
-              <li>Ayanikkad, Payyoli, Iringal</li>
-              <li>Kerala 673522</li>
-              <li>contact@tilespalace.com</li>
-              <li>+1 (555) 123-4567</li>
+              <li className="whitespace-pre-line">{storeAddress}</li>
+              <li>
+                <a href={`mailto:${storeEmail}`} className="hover:text-white transition-colors">
+                  {storeEmail}
+                </a>
+              </li>
+              <li>
+                <a href={`tel:${storePhone.replace(/[^0-9+]/g, "")}`} className="hover:text-white transition-colors">
+                  {storePhone}
+                </a>
+              </li>
               <li>
                 <a 
-                  href="https://wa.me/15551234567" 
+                  href={`https://wa.me/${cleanWa}`} 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 text-green-500 hover:text-green-400 transition-colors font-medium mt-2"
@@ -60,7 +80,7 @@ export function Footer() {
         </div>
         
         <div className="mt-12 pt-8 border-t border-slate-800 text-center text-xs text-slate-500">
-          <p>&copy; {new Date().getFullYear()} Tiles Palace. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} {storeName}. All rights reserved.</p>
         </div>
       </div>
     </footer>

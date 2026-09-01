@@ -3,8 +3,20 @@ import { Footer } from "@/components/Footer";
 import { InquiryDialog } from "@/components/InquiryDialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { MapPin, Phone, Mail, Clock } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { StoreSettings } from "@shared/schema";
 
 export default function Contact() {
+  const { data: settings } = useQuery<StoreSettings>({
+    queryKey: ["/api/settings"],
+  });
+
+  const storePhone = settings?.storePhone || "+91 98765 43210";
+  const storeEmail = settings?.storeEmail || "contact@tilespalace.com";
+  const storeAddress = settings?.storeAddress || "Ayanikkad, Payyoli, Iringal\nKerala 673522";
+  const rawWa = settings?.whatsappNumber || "919876543210";
+  const cleanWa = rawWa.replace(/[^0-9]/g, "");
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Navigation />
@@ -30,9 +42,8 @@ export default function Contact() {
                 </div>
                 <div>
                   <h3 className="font-bold text-lg mb-1">Visit Showroom</h3>
-                  <p className="text-muted-foreground text-sm leading-relaxed">
-                    Ayanikkad, Payyoli, Iringal<br />
-                    Kerala 673522
+                  <p className="text-muted-foreground text-sm leading-relaxed whitespace-pre-line">
+                    {storeAddress}
                   </p>
                 </div>
               </CardContent>
@@ -45,11 +56,13 @@ export default function Contact() {
                 </div>
                 <div>
                   <h3 className="font-bold text-lg mb-1">Call Us</h3>
-                  <p className="text-muted-foreground text-sm">
-                    +1 (555) 123-4567
+                  <p className="text-muted-foreground text-sm font-medium">
+                    <a href={`tel:${storePhone.replace(/[^0-9+]/g, "")}`} className="hover:text-primary transition-colors">
+                      {storePhone}
+                    </a>
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Mon-Fri, 9am - 6pm EST
+                    Mon-Sat, 9:30am - 7:30pm IST
                   </p>
                 </div>
               </CardContent>
@@ -62,8 +75,10 @@ export default function Contact() {
                 </div>
                 <div>
                   <h3 className="font-bold text-lg mb-1">Email Us</h3>
-                  <p className="text-muted-foreground text-sm">
-                    contact@tilespalace.com
+                  <p className="text-muted-foreground text-sm font-medium">
+                    <a href={`mailto:${storeEmail}`} className="hover:text-primary transition-colors">
+                      {storeEmail}
+                    </a>
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
                     We reply within 24 hours
@@ -85,12 +100,12 @@ export default function Contact() {
                     Message us for quick support.
                   </p>
                   <a 
-                    href="https://wa.me/15551234567" 
+                    href={`https://wa.me/${cleanWa}`} 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="text-green-600 font-bold hover:underline"
                   >
-                    Chat on WhatsApp
+                    Chat on WhatsApp ({rawWa})
                   </a>
                 </div>
               </CardContent>

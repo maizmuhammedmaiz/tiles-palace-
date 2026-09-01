@@ -6,7 +6,6 @@ export function useProducts(category?: string) {
   return useQuery({
     queryKey: [api.products.list.path, category],
     queryFn: async () => {
-      // Construct URL with optional query param
       let url = api.products.list.path;
       if (category) {
         url += `?category=${encodeURIComponent(category)}`;
@@ -16,7 +15,7 @@ export function useProducts(category?: string) {
       if (!res.ok) throw new Error("Failed to fetch products");
       
       const data = await res.json();
-      return api.products.list.responses[200].parse(data);
+      return Array.isArray(data) ? data : [];
     },
   });
 }

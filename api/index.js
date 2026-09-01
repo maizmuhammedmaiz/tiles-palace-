@@ -420,78 +420,248 @@ var DatabaseStorage = class {
     const existing = await db.select().from(products);
     const existingNames = new Set(existing.map((p) => p.name.trim().toLowerCase()));
     const seedData = [
-      // ── Tiles ──
+      // ── 🧱 1. Tiles (Requested 24 Items) ──
       {
-        name: "Premium Marble Floor Tiles",
-        description: "Elegant white marble tiles with grey veining, high gloss polish for luxurious living rooms and halls.",
-        price: "4500",
-        costPrice: "3200",
-        stockQty: 120,
-        category: "Tiles",
-        imageUrl: "attached_assets/stock_images/premium_marble_floor_5df6a86a.jpg",
-        featured: true
-      },
-      {
-        name: "Ceramic Wall Tiles",
-        description: "Textured ceramic wall tiles with moisture resistance, ideal for kitchens, washrooms, and accent walls.",
-        price: "2500",
-        costPrice: "1800",
-        stockQty: 250,
-        category: "Tiles",
-        imageUrl: "attached_assets/stock_images/ceramic_wall_tiles_b_dac2c109.jpg",
-        featured: false
-      },
-      {
-        name: "Rustic Wood Plank Vitrified Tiles",
-        description: "Natural hardwood grain texture with ultra-durable vitrified ceramic core. Warm oak matte finish.",
+        name: "Floor Tiles",
+        description: "Premium glazed vitrified floor tiles with high-gloss mirror polish for living rooms, corridors, and lounges.",
         price: "3800",
-        costPrice: "2700",
-        stockQty: 180,
+        costPrice: "2600",
+        stockQty: 200,
         category: "Tiles",
         imageUrl: "https://images.unsplash.com/photo-1581858726788-75bc0f6a952d?auto=format&fit=crop&q=80&w=800",
         featured: true
       },
       {
-        name: "Glossy White Subway Backsplash Tiles",
-        description: "Classic 3x6 inch beveled subway tiles in brilliant gloss white. Timeless kitchen and bathroom backsplash.",
-        price: "1950",
-        costPrice: "1350",
-        stockQty: 300,
+        name: "Wall Tiles",
+        description: "Decorative ceramic wall tiles with moisture-resistant gloss coating for kitchens, washrooms, and accent walls.",
+        price: "2400",
+        costPrice: "1600",
+        stockQty: 250,
         category: "Tiles",
         imageUrl: "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&q=80&w=800",
         featured: false
       },
       {
-        name: "Hexagonal Moroccan Mosaic Tiles",
-        description: "Geometric hand-crafted pattern mosaic tiles. Vibrant Mediterranean motifs for statement floors & walls.",
-        price: "5200",
-        costPrice: "3800",
-        stockQty: 95,
+        name: "Bathroom Tiles",
+        description: "Anti-bacterial anti-slip floor and wall ceramic tile combination for wet areas and master en-suites.",
+        price: "2900",
+        costPrice: "1950",
+        stockQty: 180,
+        category: "Tiles",
+        imageUrl: "https://images.unsplash.com/photo-1552321554-5fefe8c9ef14?auto=format&fit=crop&q=80&w=800",
+        featured: true
+      },
+      {
+        name: "Kitchen Tiles",
+        description: "Stain-resistant glazed ceramic backsplash and floor tiles designed for effortless cleaning.",
+        price: "2600",
+        costPrice: "1750",
+        stockQty: 220,
+        category: "Tiles",
+        imageUrl: "https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&q=80&w=800",
+        featured: false
+      },
+      {
+        name: "Outdoor Tiles",
+        description: "Weatherproof, heavy-duty textured porcelain outdoor slabs for patios, terraces, and balconies.",
+        price: "4200",
+        costPrice: "2900",
+        stockQty: 150,
+        category: "Tiles",
+        imageUrl: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&q=80&w=800",
+        featured: true
+      },
+      {
+        name: "Parking Tiles",
+        description: "Ultra-tough 16mm thick heavy-duty interlocking parking tiles with extreme load-bearing strength.",
+        price: "3400",
+        costPrice: "2300",
+        stockQty: 300,
+        category: "Tiles",
+        imageUrl: "https://images.unsplash.com/photo-1590381105924-c72589b9ef3f?auto=format&fit=crop&q=80&w=800",
+        featured: false
+      },
+      {
+        name: "Elevation Tiles",
+        description: "3D textured natural stone-look exterior wall elevation tiles for modern residential facades.",
+        price: "3900",
+        costPrice: "2700",
+        stockQty: 140,
+        category: "Tiles",
+        imageUrl: "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&q=80&w=800",
+        featured: true
+      },
+      {
+        name: "Staircase Tiles",
+        description: "Monolithic full-step vitrified step-and-riser tiles with built-in bullnose anti-skid grooves.",
+        price: "4500",
+        costPrice: "3100",
+        stockQty: 110,
+        category: "Tiles",
+        imageUrl: "https://images.unsplash.com/photo-1505373877841-8d25f7d46678?auto=format&fit=crop&q=80&w=800",
+        featured: false
+      },
+      {
+        name: "Digital Tiles",
+        description: "High-definition 3D digitally printed designer tiles with intricate Moroccan and Italian motifs.",
+        price: "3200",
+        costPrice: "2200",
+        stockQty: 175,
+        category: "Tiles",
+        imageUrl: "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&q=80&w=800",
+        featured: false
+      },
+      {
+        name: "Ceramic Tiles",
+        description: "Classic glazed ceramic tiles with smooth rectified edges for interior walls and light residential floors.",
+        price: "2100",
+        costPrice: "1400",
+        stockQty: 280,
+        category: "Tiles",
+        imageUrl: "https://images.unsplash.com/photo-1502005229762-ee1b2da97034?auto=format&fit=crop&q=80&w=800",
+        featured: false
+      },
+      {
+        name: "Porcelain Tiles",
+        description: "Ultra-low porosity, high-density porcelain floor tiles with supreme scratch and abrasion resistance.",
+        price: "4800",
+        costPrice: "3300",
+        stockQty: 130,
+        category: "Tiles",
+        imageUrl: "https://images.unsplash.com/photo-1600566753376-12c8ab7fb75b?auto=format&fit=crop&q=80&w=800",
+        featured: true
+      },
+      {
+        name: "Vitrified Tiles",
+        description: "Nano-polished double charged vitrified tiles for a seamless glass-like long-lasting sheen.",
+        price: "4400",
+        costPrice: "3000",
+        stockQty: 160,
+        category: "Tiles",
+        imageUrl: "https://images.unsplash.com/photo-1600585154526-990dced4db0d?auto=format&fit=crop&q=80&w=800",
+        featured: true
+      },
+      {
+        name: "Full Body Tiles",
+        description: "Uniform pigmented composition throughout the entire tile thickness for heavy footfall commercial zones.",
+        price: "5600",
+        costPrice: "3900",
+        stockQty: 90,
+        category: "Tiles",
+        imageUrl: "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&q=80&w=800",
+        featured: false
+      },
+      {
+        name: "GVT / PGVT Tiles",
+        description: "Glazed Vitrified & Polished Glazed Vitrified Tiles with high-definition digital mirror glaze.",
+        price: "5100",
+        costPrice: "3500",
+        stockQty: 120,
+        category: "Tiles",
+        imageUrl: "https://images.unsplash.com/photo-1600573472591-ee6b68d14c68?auto=format&fit=crop&q=80&w=800",
+        featured: true
+      },
+      {
+        name: "Marble-Look Tiles",
+        description: "Exquisite Italian Statuario and Calacatta marble replica tiles with realistic flowing grey veins.",
+        price: "4900",
+        costPrice: "3400",
+        stockQty: 140,
+        category: "Tiles",
+        imageUrl: "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&q=80&w=800",
+        featured: true
+      },
+      {
+        name: "Wood-Look Tiles",
+        description: "Natural timber hardwood plank porcelain tiles with authentic grain and matte anti-scratch texture.",
+        price: "3700",
+        costPrice: "2500",
+        stockQty: 190,
+        category: "Tiles",
+        imageUrl: "https://images.unsplash.com/photo-1581858726788-75bc0f6a952d?auto=format&fit=crop&q=80&w=800",
+        featured: true
+      },
+      {
+        name: "Stone-Look Tiles",
+        description: "Slate and travertine stone textured matte tiles for organic, earthy architectural spaces.",
+        price: "4100",
+        costPrice: "2800",
+        stockQty: 135,
+        category: "Tiles",
+        imageUrl: "https://images.unsplash.com/photo-1600585152220-90363fe7e115?auto=format&fit=crop&q=80&w=800",
+        featured: false
+      },
+      {
+        name: "Mosaic Tiles",
+        description: "Glass, ceramic, and marble mosaic mesh sheets for feature bathroom niches, pools, and borders.",
+        price: "5900",
+        costPrice: "4100",
+        stockQty: 85,
         category: "Tiles",
         imageUrl: "https://images.unsplash.com/photo-1590381105924-c72589b9ef3f?auto=format&fit=crop&q=80&w=800",
         featured: true
       },
       {
-        name: "Matte Anthracite Outdoor Pavers",
-        description: "20mm thick anti-skid porcelain pavers for patios, swimming pool decks, walkways, and balconies.",
-        price: "4900",
-        costPrice: "3500",
-        stockQty: 140,
+        name: "Anti-Skid Tiles",
+        description: "R11 certified high-traction slip-resistant matte floor tiles for washrooms and outdoor ramps.",
+        price: "3100",
+        costPrice: "2100",
+        stockQty: 210,
         category: "Tiles",
-        imageUrl: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&q=80&w=800",
+        imageUrl: "https://images.unsplash.com/photo-1584622781564-1d987f7333c1?auto=format&fit=crop&q=80&w=800",
         featured: false
       },
       {
-        name: "Terrazzo Speckled Porcelain Slabs",
-        description: "Modern Italian terrazzo look with embedded stone granules in soft ivory base. Satin anti-stain finish.",
-        price: "5800",
-        costPrice: "4200",
-        stockQty: 80,
+        name: "Large Format Tiles",
+        description: "Ultra-grand 1200x2400mm continuous porcelain slabs with seamless luxury and minimal grout lines.",
+        price: "7500",
+        costPrice: "5200",
+        stockQty: 60,
         category: "Tiles",
-        imageUrl: "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&q=80&w=800",
+        imageUrl: "https://images.unsplash.com/photo-1600607687644-c7171b42498b?auto=format&fit=crop&q=80&w=800",
         featured: true
       },
-      // ── Washbasins ──
+      {
+        name: "Tile Adhesive",
+        description: "High-polymer modified cementitious tile adhesive for superior heavy bonding on floors and walls (20kg Bag).",
+        price: "850",
+        costPrice: "550",
+        stockQty: 250,
+        category: "Tiles",
+        imageUrl: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&q=80&w=800",
+        featured: false
+      },
+      {
+        name: "Tile Grout",
+        description: "Epoxy waterproof & anti-fungal tile joint filler grout in matching designer shades (1kg Pack).",
+        price: "450",
+        costPrice: "280",
+        stockQty: 350,
+        category: "Tiles",
+        imageUrl: "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&q=80&w=800",
+        featured: false
+      },
+      {
+        name: "Tile Spacers",
+        description: "Cross precision tile levelling spacers 2mm / 3mm / 4mm for perfect alignment (Pack of 500 pcs).",
+        price: "250",
+        costPrice: "120",
+        stockQty: 500,
+        category: "Tiles",
+        imageUrl: "https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&q=80&w=800",
+        featured: false
+      },
+      {
+        name: "Tile Trim / Profiles",
+        description: "Anodized aluminium & stainless steel corner edge protection trims (8ft standard length).",
+        price: "650",
+        costPrice: "400",
+        stockQty: 180,
+        category: "Tiles",
+        imageUrl: "https://images.unsplash.com/photo-1534349762230-e0cadf78f5da?auto=format&fit=crop&q=80&w=800",
+        featured: false
+      },
+      // ── 🚿 Washbasins ──
       {
         name: "Modern Ceramic Basin",
         description: "Sleek countertop basin with a glossy nano-coated scratch-proof finish and overflow drain.",
@@ -509,7 +679,7 @@ var DatabaseStorage = class {
         costPrice: "6800",
         stockQty: 30,
         category: "Washbasins",
-        imageUrl: "attached_assets/stock_images/classic_pedestal_sin_d333865c.jpg",
+        imageUrl: "https://images.unsplash.com/photo-1584622781564-1d987f7333c1?auto=format&fit=crop&q=80&w=800",
         featured: false
       },
       {
@@ -532,7 +702,7 @@ var DatabaseStorage = class {
         imageUrl: "https://images.unsplash.com/photo-1604014237800-1c9102c219da?auto=format&fit=crop&q=80&w=800",
         featured: false
       },
-      // ── Showers & Bath ──
+      // ── 🚿 Showers & Bath ──
       {
         name: "Rainfall Shower Head",
         description: "Luxury 10-inch ultra-slim stainless steel rainfall shower head in mirror-chrome finish with silicone nozzles.",
@@ -540,7 +710,7 @@ var DatabaseStorage = class {
         costPrice: "5800",
         stockQty: 60,
         category: "Showers",
-        imageUrl: "attached_assets/stock_images/rainfall_shower_head_700cf018.jpg",
+        imageUrl: "https://images.unsplash.com/photo-1584622781564-1d987f7333c1?auto=format&fit=crop&q=80&w=800",
         featured: true
       },
       {
@@ -563,7 +733,7 @@ var DatabaseStorage = class {
         imageUrl: "https://images.unsplash.com/photo-1600585154526-990dced4db0d?auto=format&fit=crop&q=80&w=800",
         featured: false
       },
-      // ── Kitchen Fittings ──
+      // ── 🍳 Kitchen Fittings ──
       {
         name: "Stainless Steel Sink",
         description: "Heavy duty 304 grade double bowl kitchen sink with sound deadening pads and drain basket.",
@@ -571,7 +741,7 @@ var DatabaseStorage = class {
         costPrice: "10500",
         stockQty: 40,
         category: "Kitchen Fittings",
-        imageUrl: "attached_assets/stock_images/stainless_steel_kitc_9a024fed.jpg",
+        imageUrl: "https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&q=80&w=800",
         featured: true
       },
       {
@@ -594,7 +764,7 @@ var DatabaseStorage = class {
         imageUrl: "https://images.unsplash.com/photo-1588854337236-6889d631faa8?auto=format&fit=crop&q=80&w=800",
         featured: true
       },
-      // ── Lighting ──
+      // ── 💡 Lighting ──
       {
         name: "Smart LED Bulb",
         description: "WiFi enabled 12W RGB + Tunable White LED bulb compatible with Alexa and Google Home.",
@@ -625,7 +795,7 @@ var DatabaseStorage = class {
         imageUrl: "https://images.unsplash.com/photo-1513506003901-1e6a229e2d15?auto=format&fit=crop&q=80&w=800",
         featured: false
       },
-      // ── Water Heaters ──
+      // ── 🔥 Water Heaters ──
       {
         name: "Premium Digital Water Heater with Shower",
         description: "Advanced 25L digital water heater featuring real-time temperature LED display and integrated shower system.",
@@ -633,7 +803,7 @@ var DatabaseStorage = class {
         costPrice: "14500",
         stockQty: 22,
         category: "Water Heaters",
-        imageUrl: "/images/water-heater-shower.png",
+        imageUrl: "https://images.unsplash.com/photo-1585771724684-38269d6639fd?auto=format&fit=crop&q=80&w=800",
         featured: false
       },
       {
